@@ -1,10 +1,8 @@
 #include <limits.h>
 #include <stdint.h>
-#include <sys\stat.h"
+#include <sys\stat.h>
 
 #include "utils.h"
-
-static const char NULL_TARGET = '\0';
 
 /// @brief Maximum number of retries while looking for random number
 static const uint64_t MAX_RAND_RETRIES = 10;
@@ -22,25 +20,9 @@ static const int           HASH_SHIFT_COEF = 5;
 static const unsigned long START_HASH      = 5381;
 
 
-void SeparateBigString(char* buffer, int buffer_length)
+void BufNextString(char** buffer)
 {
-    int read_strings_number = 0;
-    char* const max_buffer_adress = buffer + buffer_length - 1;
-    char* last_str_ptr = buffer;
-    char* new_str_ptr = buffer;
-
-    while(true)
-    {
-        new_str_ptr = strchr(last_str_ptr, NULL_TARGET) + 1;
-
-        buffer[read_strings_number] = {last_str_ptr, (int) (new_str_ptr - last_str_ptr)};
-
-        last_str_ptr = new_str_ptr;
-        read_strings_number++;
-
-        if (new_str_ptr == max_buffer_adress)
-            break;
-    }
+    while (*(*buffer)++ != '\n') {}
 }
 
 

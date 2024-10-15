@@ -10,10 +10,10 @@
 #define NDEBUG
 
 /// @brief If defined no canaries will be set up
-// #define NCANARIES_MODE
+#define NCANARIES_MODE
 
 /// @brief If defined no hash will be used
-// #define NHASH_MODE
+#define NHASH_MODE
 
 enum CodeError
 {
@@ -21,6 +21,8 @@ enum CodeError
     FILE_NOT_OPENED_ERR,
     WRONG_BUFSIZE_ERR,
     FILLING_FSTAT_ERR,
+    STACK_ERR,
+    UNKNOWN_CMD_ERR,
 };
 
 #endif

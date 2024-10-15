@@ -14,7 +14,7 @@ OBJ_DIR := object
 SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
 INCLUDES := $(wildcard $(INC_DIR)/*.h)
 OBJECTS := $(SOURCES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
-EXE := Stack.exe
+EXE := SPU.exe
 
 DOCS_NAME := Docs_config
 

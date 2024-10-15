@@ -1,6 +1,9 @@
 #include "spu.h"
+#include "input_output.h"
 
 int main()
 {
-    return RunProgram();
+    CodeError code_err = RunMainProgram();
+    PrintCodeErr(code_err);
+    return code_err;
 }

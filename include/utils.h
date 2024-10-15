@@ -6,11 +6,13 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <stdint.h>
+
 #include "settings.h"
 
-void SeparateBigString();
+void BufNextString(char** buffer);
 
-CodeError fsize(const char* file_name, int* input_buffer_length)
+CodeError fsize(const char* file_name, int* input_buffer_length);
 
 /*!
     Get random number
