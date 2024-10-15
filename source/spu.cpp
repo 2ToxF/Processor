@@ -110,6 +110,11 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
                     input_code_buf += strlen(word);
                 }
 
+                else
+                {
+                    return UNKNOWN_ASM_CMD_ERR;
+                }
+
                 *word = ';';
             }
 
@@ -211,7 +216,7 @@ static CodeError RunCode(const char* asm_code_file)
                 return NO_ERROR;
 
             default:
-                return UNKNOWN_CMD_ERR;
+                return UNKNOWN_RUNTIME_CMD_ERR;
         }
 
         BufNextString(&code_buf);

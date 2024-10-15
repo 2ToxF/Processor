@@ -13,6 +13,6 @@
 #define WHT "\033[0;37m"
 
 CodeError MyFread(char** input_buffer, int* input_buffer_length, const char* input_file_name);
-void PrintCodeErr(CodeError code_err);
+void PrintCodeError(CodeError code_err);
 
 #endif

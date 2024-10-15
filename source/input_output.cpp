@@ -27,7 +27,7 @@ CodeError MyFread(char** input_buffer, int* input_buffer_length, const char* inp
 }
 
 
-void PrintCodeErr(CodeError code_err)
+void PrintCodeError(CodeError code_err)
 {
     #define ERR_DESCR_(errcode)                       \
         case errcode:                                 \
@@ -46,7 +46,8 @@ void PrintCodeErr(CodeError code_err)
         ERR_DESCR_(WRONG_BUFSIZE_ERR);
         ERR_DESCR_(FILLING_FSTAT_ERR);
         ERR_DESCR_(STACK_ERR);
-        ERR_DESCR_(UNKNOWN_CMD_ERR);
+        ERR_DESCR_(UNKNOWN_ASM_CMD_ERR);
+        ERR_DESCR_(UNKNOWN_RUNTIME_CMD_ERR);
 
         default:
             printf(RED "UNKNOWN ERROR" WHT);

@@ -4,6 +4,6 @@
 int main()
 {
     CodeError code_err = RunMainProgram();
-    PrintCodeErr(code_err);
+    PrintCodeError(code_err);
     return code_err;
 }
