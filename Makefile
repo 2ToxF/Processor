@@ -1,3 +1,7 @@
+SRC_DIR := source
+INC_DIR := include
+OBJ_DIR := object
+
 CC := g++
 DED_FLAGS := -Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal -Winline -Wunreachable-code \
 	-Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default -Weffc++ -Wmain -Wextra \
@@ -6,14 +10,17 @@ DED_FLAGS := -Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat
 	-Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel \
 	-Wtype-limits -Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE
 ADD_FLAGS := -mrdrnd
+INC_FLAGS := -I$(INC_DIR) -IStack/$(INC_DIR)
 
-SRC_DIR := source
-INC_DIR := include
-OBJ_DIR := object
+SOURCES   := $(wildcard $(SRC_DIR)/*.cpp)
+STACK_SRC := $(wildcard Stack/$(SRC_DIR)/*.cpp)
 
-SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
 INCLUDES := $(wildcard $(INC_DIR)/*.h)
-OBJECTS := $(SOURCES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+
+OBJECTS   := $(SOURCES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+STACK_OBJ := $(STACK_SRC:Stack/$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+ALL_OBJ   := $(OBJECTS) $(STACK_OBJ)
+
 EXE := SPU.exe
 
 DOCS_NAME := Docs_config
@@ -24,10 +31,10 @@ $(OBJ_DIR):
 	@mkdir $@
 
 $(EXE): $(OBJECTS)
-	@$(CC) $(OBJECTS) -o $@
+	@$(CC) $(ALL_OBJ) -o $@
 
 $(OBJECTS): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(INCLUDES)
-	@$(CC) -c $(DED_FLAGS) $(ADD_FLAGS) -I$(INC_DIR) $< -o $@
+	@$(CC) -c $(DED_FLAGS) $(ADD_FLAGS) $(INC_FLAGS) $< -o $@
 
 run: $(EXE)
 	@$(EXE)
