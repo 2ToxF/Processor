@@ -11,6 +11,7 @@
 #include "settings.h"
 
 void BufNextString(char** buffer);
-CodeError fsize(const char* file_name, int* input_buffer_length);
+int DigitsNumber(int num);
+CodeError Fsize(const char* file_name, int* input_buffer_length);
 
 #endif

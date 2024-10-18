@@ -14,7 +14,7 @@ CodeError MyFread(char** input_buffer, int* input_buffer_length, const char* inp
     if (input_fptr == NULL)
         return FILE_NOT_OPENED_ERR;
 
-    if ((code_err = fsize(input_file_name, input_buffer_length)) != NO_ERROR)
+    if ((code_err = Fsize(input_file_name, input_buffer_length)) != NO_ERROR)
         return code_err;
 
     *input_buffer = (char*) calloc(*input_buffer_length, sizeof(char));
@@ -45,8 +45,11 @@ void PrintCodeError(CodeError code_err)
         ERR_DESCR_(FILE_NOT_OPENED_ERR);
         ERR_DESCR_(WRONG_BUFSIZE_ERR);
         ERR_DESCR_(FILLING_FSTAT_ERR);
-        ERR_DESCR_(STACK_ERR);
+
+        ERR_DESCR_(OUT_OF_MEM_ERR);
         ERR_DESCR_(UNKNOWN_ASM_CMD_ERR);
+
+        ERR_DESCR_(STACK_ERR);
         ERR_DESCR_(UNKNOWN_RUNTIME_CMD_ERR);
 
         default:
