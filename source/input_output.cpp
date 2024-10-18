@@ -46,6 +46,7 @@ void PrintCodeError(CodeError code_err)
         ERR_DESCR_(WRONG_BUFSIZE_ERR);
         ERR_DESCR_(FILLING_FSTAT_ERR);
 
+        ERR_DESCR_(TOO_MUCH_LABELS_ERR);
         ERR_DESCR_(OUT_OF_MEM_ERR);
         ERR_DESCR_(UNKNOWN_ASM_CMD_ERR);
 

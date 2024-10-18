@@ -15,12 +15,13 @@ static const char  NULL_TARGET = '\0';
 
 static const int   START_OUT_BUFSIZE = 100;
 static const int   REALLOC_COEF      = 2;
+static const int   REALLOC_LIMIT     = 50;
 
 static const int   MAX_WORD_LEN = 25;
 static const int   MAX_NUM_LEN  = 33;
 
 static const char* PUSH_CMD = "push";
-// static const char* POP_CMD  = "pop";
+static const char* POP_CMD  = "pop";
 static const char* ADD_CMD  = "add";
 static const char* SUB_CMD  = "sub";
 static const char* DIV_CMD  = "div";
@@ -28,20 +29,22 @@ static const char* MULT_CMD = "mult";
 static const char* IN_CMD   = "in";
 static const char* OUT_CMD  = "out";
 static const char* HLT_CMD  = "hlt";
-// static const char* JMP_CMD  = "jmp";
-// static const char* JA_CMD   = "ja";
-// static const char* JAE_CMD  = "jae";
-// static const char* JB_CMD   = "jb";
-// static const char* JBE_CMD  = "jbe";
-// static const char* JE_CMD   = "je";
-// static const char* JNE_CMD  = "jne";
+static const char* JMP_CMD  = "jmp";
+static const char* JA_CMD   = "ja";
+static const char* JAE_CMD  = "jae";
+static const char* JB_CMD   = "jb";
+static const char* JBE_CMD  = "jbe";
+static const char* JE_CMD   = "je";
+static const char* JNE_CMD  = "jne";
+
+static const int   MAX_LABELS_MAS_SIZE = 10;
 
 enum SPUComands
 {
     HLT = 1,
 
     PUSH,
-    // POP,
+    POP,
 
     ADD,
     SUB,
@@ -51,18 +54,28 @@ enum SPUComands
     IN,
     OUT,
 
-    // JMP,
-    // JA, JAE,
-    // JB, JBE,
-    // JE, JNE,
+    JMP,
+    JA, JAE,
+    JB, JBE,
+    JE, JNE,
+};
+
+struct Label
+{
+    char name[MAX_WORD_LEN];
+    int cmd_num;
 };
 
 // ------------------------------------------------------------------------------------------------------------
 
-static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name);
-static CodeError RunCode(const char* asm_code_file);
+static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name,
+                              char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE]);
+static CodeError FindLabels(char* input_code_buf, int input_code_bufsize,
+                            Label labels_mas[MAX_LABELS_MAS_SIZE]);
+static CodeError RunCode(char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE]);
 
-static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name)
+static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name,
+                              char** asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE])
 {
     CodeError code_err = NO_ERROR;
 
@@ -75,6 +88,9 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
     if (out_fptr == NULL)
         return FILE_NOT_OPENED_ERR;
 
+    if ((code_err = FindLabels(labels_mas)) != NO_ERROR)
+        return code_err;
+
     char*  start_inp_buf = input_code_buf;
     char*  end_inp_buf   = input_code_buf + input_code_bufsize;
 
@@ -83,15 +99,7 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
     size_t outbuf_idx    = 0;
 
     char number_str[MAX_NUM_LEN] = {};
-    char word[MAX_WORD_LEN] = {};
-
-    #define CHECK_OUTBUF_REALLOC_(add_str_size)                           \
-        if (outbuf_idx > outbuf_size - (add_str_size))                    \
-        {                                                                 \
-            outbuf_size *= REALLOC_COEF;                                  \
-            output_buf = (char*) realloc(output_buf, outbuf_size);        \
-            memset(&output_buf[outbuf_idx], 0, outbuf_size - outbuf_idx); \
-        }
+    char word[MAX_WORD_LEN]      = {};
 
     while (input_code_buf < end_inp_buf)
     {
@@ -99,7 +107,12 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
         {
             if (*word != ';')
             {
-                CHECK_OUTBUF_REALLOC_(strlen(word));
+                if (outbuf_idx > outbuf_size - REALLOC_LIMIT)
+                {
+                    outbuf_size *= REALLOC_COEF;
+                    output_buf = (char*) realloc(output_buf, outbuf_size);
+                    memset(&output_buf[outbuf_idx], 0, outbuf_size - outbuf_idx);
+                }
 
                 if (strcmp(word, PUSH_CMD) == 0)
                 {
@@ -107,7 +120,6 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
                     sscanf(input_code_buf, "%s", number_str);
                     input_code_buf += strlen(number_str);
 
-                    CHECK_OUTBUF_REALLOC_(strlen(number_str));
                     sprintf(&output_buf[outbuf_idx], "%d\n%s\n", (int) PUSH, number_str);
 
                     outbuf_idx += DigitsNumber((int) PUSH) + strlen(number_str) + 2;
@@ -174,12 +186,11 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
         }
     }
 
-    #undef CHECK_OUTBUF_REALLOC_
-
+    output_buf = char* realloc(output_buf, outbuf_idx);
     fwrite(output_buf, 1, outbuf_idx, out_fptr);
+    *asm_code_buf = output_buf;
 
     free(start_inp_buf); start_inp_buf = NULL;
-    free(output_buf); output_buf = NULL;
 
     fclose(out_fptr); out_fptr = NULL;
 
@@ -187,7 +198,47 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
 }
 
 
-static CodeError RunCode(const char* asm_code_file)
+static CodeError FindLabels(char* input_code_buf, int input_code_bufsize,
+                            Label labels_mas[MAX_LABELS_MAS_SIZE])
+{
+    char* end_inp_buf        = input_code_buf + input_code_bufsize;
+    char  word[MAX_WORD_LEN] = {};
+
+    int   labels_idx         = 0;
+    int   cmd_number         = 0;
+
+    while (input_code_buf < end_inp_buf)
+    {
+        if (sscanf(input_code_buf, "%s", word) != 0)
+        {
+            if (*word != ';')
+            {
+                if (word[strlen(word) - 1] == ':')
+                {
+                    if (labels_idx < MAX_LABELS_MAS_SIZE)
+                    {
+                        labels_mas[labels_idx] = {0, cmd_number};
+                        strcpy(labels_mas[labels_idx].name, word);
+                        ++labels_idx;
+                    }
+
+                    else
+                        return TOO_MUCH_LABELS_ERR;
+                }
+
+                else
+                    ++cmd_number;
+            }
+
+            BufNextString(&input_code_buf);
+        }
+    }
+
+    return NO_ERROR;
+}
+
+
+static CodeError RunCode(char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE])
 {
     CodeError code_err = NO_ERROR;
 
@@ -289,32 +340,27 @@ static CodeError RunCode(const char* asm_code_file)
 
 CodeError RunMainProgram()
 {
-    CodeError code_err = CodeAssemble(INPUT_CODE_FILE_NAME, OUTPUT_CODE_FILE_NAME);
+    char* asm_code_buf = NULL;
+    Label labels_mas[MAX_LABELS_MAS_SIZE] = {};
+
+    CodeError code_err = CodeAssemble(INPUT_CODE_FILE_NAME, OUTPUT_CODE_FILE_NAME, asm_code_buf, labels_mas);
     if (code_err != NO_ERROR)
         return code_err;
 
     int user_answer = 0;
     printf(MAG "Program assembled succesfully\nWanna run it? (Y / N)" WHT "\n");
 
-    if ((user_answer = getchar()) == 'Y' || user_answer == 'y')
+    if (((user_answer = getchar()) == 'Y' || user_answer == 'y' || user_answer == 'N'
+          || user_answer == 'n') & getchar() == '\n')
     {
-        if (getchar() == '\n')
+        if (user_answer == 'Y' || user_answer == 'y')
         {
             printf(MAG "Starting program" WHT "\n");
-            RunCode(OUTPUT_CODE_FILE_NAME);
+            RunCode(asm_code_buf, labels_mas);
         }
 
         else
-            printf(RED "Sorry, I don't know such command" WHT "\n");
-    }
-
-    else if (user_answer == 'N' || user_answer == 'n')
-    {
-        if (getchar() == '\n')
             printf(MAG "Stopping program" WHT "\n");
-
-        else
-            printf(RED "Sorry, I don't know such command" WHT "\n");
     }
 
     else
