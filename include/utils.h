@@ -10,10 +10,9 @@
 
 #include "settings.h"
 
-void      BufNextSpace (char** buffer);
 void      BufNextString(char** buffer);
 void      BufNextWord  (char** buffer);
-int       DigitsNumber (int num);
+void      BufSkipSpaces(char** buffer);
 CodeError Fsize        (const char* file_name, int* input_buffer_length);
 bool      StrIsNum     (const char* str);
 

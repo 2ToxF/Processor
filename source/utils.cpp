@@ -1,35 +1,35 @@
 #include <ctype.h>
-#include <limits.h>
-#include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys\stat.h>
 
 #include "utils.h"
 
 
-void BufNextSpace(char** buffer)
-{
-    while (*(*buffer)++ != ' ') {}
-}
-
-
 void BufNextString(char** buffer)
 {
-    while (*(*buffer)++ != '\n') {}
+    while (**buffer != '\n')
+        ++(*buffer);
+    ++(*buffer);
+
+    BufSkipSpaces(buffer);
 }
 
 
 void BufNextWord(char** buffer)
 {
-    BufNextSpace(buffer);
-    while (**buffer == ' ' || **buffer == '\n' || **buffer == '\r')
-        (*buffer)++;
+    while (**buffer != ' ' && **buffer != '\n')
+        ++(*buffer);
+    ++(*buffer);
+
+    BufSkipSpaces(buffer);
 }
 
 
-int DigitsNumber(int num)
+void BufSkipSpaces(char** buffer)
 {
-    return (int) log10((double) num) + 1;
+    while (**buffer == ' ' || **buffer == '\n' || **buffer == '\r')
+        ++(*buffer);
 }
 
 
