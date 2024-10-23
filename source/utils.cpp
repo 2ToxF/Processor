@@ -44,11 +44,18 @@ CodeError Fsize(const char* file_name, int* input_buffer_length)
 }
 
 
-bool StrIsInt(const char* str)
+bool StrIsNum(const char* str)
 {
+    int dot_count = 0;
+
     for (int i = 0; str[i] != '\0'; ++i)
-        if (!isdigit(str[i]))
+    {
+        if (str[i] == '.' && dot_count <= 1)
+            ++dot_count;
+
+        else if (!isdigit(str[i]))
             return false;
+    }
 
     return true;
 }

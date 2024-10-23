@@ -16,10 +16,8 @@ static const char  NULL_TARGET = '\0';
 static const int   START_OUT_BUFSIZE        = 100;
 static const int   REALLOC_COEF             = 2;
 static const int   REALLOC_LIMIT            = 50;
-static const int   OUTBUF_PTR_DEFAULT_SHIFT = 1;
 
 static const int   MAX_INSTR_LEN = 40;
-// static const int   MAX_NUM_LEN   = 33;
 
 static const char* PUSH_CMD = "push";
 static const char* POP_CMD  = "pop";
@@ -131,9 +129,15 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
                 BufNextWord(&input_code_buf);
                 sscanf(input_code_buf, "%s", instruction);
 
-                if (StrIsInt(instruction))
+                if (StrIsNum(instruction))
                 {
-                    *((double*) (output_code_buf + outbuf_idx)) = atof(instruction);
+                    *(double*) (output_code_buf + outbuf_idx) = atof(instruction);
+
+                    // for (int i = 0; i < 8; ++i)
+                    //     printf("%d ", output_code_buf[outbuf_idx + i]);
+
+                    // printf("\n" YEL "%lf" WHT "\n", *((double*) (output_code_buf + outbuf_idx)));
+                    // printf(BLU "%llu: %s = %lf" WHT "\n\n", outbuf_idx, instruction, atof(instruction));
                     outbuf_idx += sizeof(double);
                 }
 
@@ -248,7 +252,7 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
 
                 ++outbuf_idx;
                 *((int*) (output_code_buf + outbuf_idx)) = cmd_num;
-                ++outbuf_idx;
+                outbuf_idx += sizeof(int);
             }
 
             else
@@ -303,73 +307,69 @@ static CodeError RunCode(const char* asm_file_name)
     if (CREATE_STACK(&stack) != STK_NO_ERROR)
         return STACK_ERR;
 
-    SPUComands cmd_number = HLT;
-    int number1 = 0;
-    int number2 = 0;
-    char* end_of_buf = code_buf + code_bufsize;
+    int ip           = 0;
+    double temp_num1 = 0;
+    double temp_num2 = 0;
 
-    while (code_buf < end_of_buf)
+    while (true)
     {
-        sscanf(code_buf, "%d", (int*) &cmd_number);
-        switch (cmd_number)
+        switch (code_buf[ip++])
         {
             case PUSH:
             {
-                BufNextString(&code_buf);
-                sscanf(code_buf, "%d", &number1);
-                StackPush(stack, number1);
-
+                StackPush(stack, *((double*) (code_buf + ip)));
+                ip += sizeof(double);
                 break;
             }
 
             case ADD:
             {
-                StackPop(stack, &number1);
-                StackPop(stack, &number2);
-                StackPush(stack, number2 + number1);
+                StackPop(stack, &temp_num1);
+                StackPop(stack, &temp_num2);
+                StackPush(stack, temp_num2 + temp_num1);
 
                 break;
             }
 
             case SUB:
             {
-                StackPop(stack, &number1);
-                StackPop(stack, &number2);
-                StackPush(stack, number2 - number1);
+                StackPop(stack, &temp_num1);
+                StackPop(stack, &temp_num2);
+                StackPush(stack, temp_num2 - temp_num1);
 
                 break;
             }
 
             case DIV:
             {
-                StackPop(stack, &number1);
-                StackPop(stack, &number2);
-                StackPush(stack, number2 / number1);
+                StackPop(stack, &temp_num1);
+                StackPop(stack, &temp_num2);
+                StackPush(stack, temp_num2 / temp_num1);
 
                 break;
             }
 
             case MULT:
             {
-                StackPop(stack, &number1);
-                StackPop(stack, &number2);
-                StackPush(stack, number2 * number1);
+                StackPop(stack, &temp_num1);
+                StackPop(stack, &temp_num2);
+                StackPush(stack, temp_num2 * temp_num1);
 
                 break;
             }
 
             case IN:
             {
-                scanf("%d", &number1);
-                StackPush(stack, number1);
+                scanf("%lf", &temp_num1);
+                StackPush(stack, temp_num1);
 
                 break;
             }
 
             case OUT:
             {
-                StackPop(stack, &number1);
-                printf(YEL "%d" WHT "\n", number1);
+                StackPop(stack, &temp_num1);
+                printf(YEL "%g" WHT "\n", temp_num1);
 
                 break;
             }
@@ -380,8 +380,6 @@ static CodeError RunCode(const char* asm_file_name)
             default:
                 return UNKNOWN_RUNTIME_CMD_ERR;
         }
-
-        BufNextString(&code_buf);
     }
 
     StackDtor(&stack);

@@ -15,6 +15,9 @@
 /// @brief If defined no hash will be used
 // #define NHASH_MODE
 
+/// @brief Type of stack elements
+typedef double StackElem_t;
+
 enum CodeError
 {
     NO_ERROR,
