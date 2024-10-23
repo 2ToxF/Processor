@@ -13,12 +13,13 @@ static const char* INPUT_CODE_FILE_NAME  = "input_code_v1.asm";
 static const char* OUTPUT_CODE_FILE_NAME = "output_code";
 static const char  NULL_TARGET = '\0';
 
-static const int   START_OUT_BUFSIZE = 100;
-static const int   REALLOC_COEF      = 2;
-static const int   REALLOC_LIMIT     = 50;
+static const int   START_OUT_BUFSIZE        = 100;
+static const int   REALLOC_COEF             = 2;
+static const int   REALLOC_LIMIT            = 50;
+static const int   OUTBUF_PTR_DEFAULT_SHIFT = 1;
 
-static const int   MAX_WORD_LEN = 25;
-static const int   MAX_NUM_LEN  = 33;
+static const int   MAX_INSTR_LEN = 40;
+// static const int   MAX_NUM_LEN   = 33;
 
 static const char* PUSH_CMD = "push";
 static const char* POP_CMD  = "pop";
@@ -30,20 +31,23 @@ static const char* IN_CMD   = "in";
 static const char* OUT_CMD  = "out";
 static const char* HLT_CMD  = "hlt";
 static const char* JMP_CMD  = "jmp";
+static const char* JE_CMD   = "je";
+static const char* JNE_CMD  = "jne";
 static const char* JA_CMD   = "ja";
 static const char* JAE_CMD  = "jae";
 static const char* JB_CMD   = "jb";
 static const char* JBE_CMD  = "jbe";
-static const char* JE_CMD   = "je";
-static const char* JNE_CMD  = "jne";
 
-static const int   MAX_LABELS_MAS_SIZE = 10;
+static const int   NUMBER_OF_REGISTERS = 4;
+static const char* REGISTERS[NUMBER_OF_REGISTERS] = {"AX", "BX", "CX", "DX"};
+
+static const int   MAX_MARKS_MAS_SIZE = 10;
 
 enum SPUComands
 {
     HLT = 1,
 
-    PUSH,
+    PUSH, PUSHR,
     POP,
 
     ADD,
@@ -55,27 +59,27 @@ enum SPUComands
     OUT,
 
     JMP,
+    JE, JNE,
     JA, JAE,
     JB, JBE,
-    JE, JNE,
 };
 
-struct Label
+struct Mark
 {
-    char name[MAX_WORD_LEN];
+    char name[MAX_INSTR_LEN];
     int cmd_num;
 };
 
 // ------------------------------------------------------------------------------------------------------------
 
-static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name,
-                              char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE]);
-static CodeError FindLabels(char* input_code_buf, int input_code_bufsize,
-                            Label labels_mas[MAX_LABELS_MAS_SIZE]);
-static CodeError RunCode(char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE]);
+static CodeError CodeAssemble  (const char* input_file_name, const char* output_file_name);
+static int       GetMarkCmdNum (Mark* marks_mas, const char* mark_name);
+static char      GetRegisterNum(const char* reg_name);
+static CodeError RunCode       (const char* asm_file_name);
+static CodeError ScanMarks     (char* input_code_buf, int input_code_bufsize,
+                                Mark marks_mas[MAX_MARKS_MAS_SIZE]);
 
-static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name,
-                              char** asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE])
+static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name)
 {
     CodeError code_err = NO_ERROR;
 
@@ -88,163 +92,211 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
     if (out_fptr == NULL)
         return FILE_NOT_OPENED_ERR;
 
-    if ((code_err = FindLabels(labels_mas)) != NO_ERROR)
+    Mark marks_mas[MAX_MARKS_MAS_SIZE] = {};
+    if ((code_err = ScanMarks(input_code_buf, input_code_bufsize, marks_mas)) != NO_ERROR)
         return code_err;
 
-    char*  start_inp_buf = input_code_buf;
-    char*  end_inp_buf   = input_code_buf + input_code_bufsize;
+    char*  start_inp_buf    = input_code_buf;
+    char*  end_inp_buf      = input_code_buf + input_code_bufsize;
 
-    size_t outbuf_size   = START_OUT_BUFSIZE;
-    char*  output_buf    = (char*) calloc(outbuf_size, sizeof(char));
-    size_t outbuf_idx    = 0;
+    size_t outbuf_size      = START_OUT_BUFSIZE;
+    char*  output_code_buf  = (char*) calloc(outbuf_size, sizeof(char));
+    size_t outbuf_idx       = 0;
 
-    char number_str[MAX_NUM_LEN] = {};
-    char word[MAX_WORD_LEN]      = {};
+    char instruction[MAX_INSTR_LEN] = {};
 
-    while (input_code_buf < end_inp_buf)
+    while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", instruction) != 0)
     {
-        if (sscanf(input_code_buf, "%s", word) != 0)
+        if (instruction[0] != ';')
         {
-            if (*word != ';')
+            if (instruction[strlen(instruction) - 1] == ':')
             {
-                if (outbuf_idx > outbuf_size - REALLOC_LIMIT)
+                BufNextString(&input_code_buf);
+                continue;
+            }
+
+            if (outbuf_idx > outbuf_size - REALLOC_LIMIT)
+            {
+                outbuf_size *= REALLOC_COEF;
+                output_code_buf = (char*) realloc(output_code_buf, outbuf_size);
+                memset(&output_code_buf[outbuf_idx], 0, outbuf_size - outbuf_idx);
+            }
+
+
+            if (strcmp(instruction, PUSH_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) PUSH;
+                ++outbuf_idx;
+
+                BufNextWord(&input_code_buf);
+                sscanf(input_code_buf, "%s", instruction);
+
+                if (StrIsInt(instruction))
                 {
-                    outbuf_size *= REALLOC_COEF;
-                    output_buf = (char*) realloc(output_buf, outbuf_size);
-                    memset(&output_buf[outbuf_idx], 0, outbuf_size - outbuf_idx);
-                }
-
-                if (strcmp(word, PUSH_CMD) == 0)
-                {
-                    input_code_buf += strlen(word);
-                    sscanf(input_code_buf, "%s", number_str);
-                    input_code_buf += strlen(number_str);
-
-                    sprintf(&output_buf[outbuf_idx], "%d\n%s\n", (int) PUSH, number_str);
-
-                    outbuf_idx += DigitsNumber((int) PUSH) + strlen(number_str) + 2;
-                }
-
-                else if (strcmp(word, ADD_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) ADD);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) ADD) + 1;
-                }
-
-                else if (strcmp(word, SUB_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) SUB);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) SUB) + 1;
-                }
-
-                else if (strcmp(word, DIV_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) DIV);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) DIV) + 1;
-                }
-
-                else if (strcmp(word, MULT_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) MULT);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) MULT) + 1;
-                }
-
-                else if (strcmp(word, IN_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) IN);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) IN) + 1;
-                }
-
-                else if (strcmp(word, OUT_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) OUT);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) OUT) + 1;
-                }
-
-                else if (strcmp(word, HLT_CMD) == 0)
-                {
-                    sprintf(&output_buf[outbuf_idx], "%d\n", (int) HLT);
-                    input_code_buf += strlen(word);
-                    outbuf_idx += DigitsNumber((int) HLT) + 1;
+                    *((double*) (output_code_buf + outbuf_idx)) = atof(instruction);
+                    outbuf_idx += sizeof(double);
                 }
 
                 else
                 {
+                    char register_number = GetRegisterNum(instruction);
+                    if (register_number == 0)
+                        return UNKNOWN_REG_NAME_ERR;
+
+                    output_code_buf[outbuf_idx] = register_number;
+                    ++outbuf_idx;
+                }
+            }
+
+            else if (strcmp(instruction, POP_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) PUSH;
+                ++outbuf_idx;
+
+                BufNextWord(&input_code_buf);
+                sscanf(input_code_buf, "%s", instruction);
+
+                char register_number = GetRegisterNum(instruction);
+                if (register_number == 0)
+                    return UNKNOWN_REG_NAME_ERR;
+
+                output_code_buf[outbuf_idx] = register_number;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, ADD_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) ADD;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, SUB_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) SUB;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, DIV_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) DIV;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, MULT_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) MULT;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, IN_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) IN;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, OUT_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) OUT;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(instruction, HLT_CMD) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) HLT;
+                ++outbuf_idx;
+            }
+
+            else if (instruction[0] == 'j')
+            {
+                BufNextWord(&input_code_buf);
+                char mark_name[MAX_INSTR_LEN] = {};
+                sscanf(input_code_buf, "%s", mark_name);
+
+                int cmd_num = GetMarkCmdNum(marks_mas, mark_name);
+                if (cmd_num == -1)
+                {
+                    printf(RED "ERROR: Meet undefined mark during assembling: %s" WHT "\n", mark_name);
+                    return UNKNOWN_MARK_NAME_ERR;
+                }
+
+                else if (strcmp(JMP_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JMP;
+
+                else if (strcmp(JE_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JE;
+
+                else if (strcmp(JNE_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JNE;
+
+                else if (strcmp(JA_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JA;
+
+                else if (strcmp(JAE_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JAE;
+
+                else if (strcmp(JB_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JB;
+
+                else if (strcmp(JBE_CMD, instruction) == 0)
+                    output_code_buf[outbuf_idx] = (char) JBE;
+
+                else
+                {
+                    printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", instruction);
                     return UNKNOWN_ASM_CMD_ERR;
                 }
 
-                *word = ';';
+                ++outbuf_idx;
+                *((int*) (output_code_buf + outbuf_idx)) = cmd_num;
+                ++outbuf_idx;
             }
 
-            BufNextString(&input_code_buf);
+            else
+            {
+                printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", instruction);
+                return UNKNOWN_ASM_CMD_ERR;
+            }
         }
+
+        BufNextString(&input_code_buf);
     }
 
-    output_buf = char* realloc(output_buf, outbuf_idx);
-    fwrite(output_buf, 1, outbuf_idx, out_fptr);
-    *asm_code_buf = output_buf;
+    fwrite(output_code_buf, 1, outbuf_idx, out_fptr);
 
     free(start_inp_buf); start_inp_buf = NULL;
-
     fclose(out_fptr); out_fptr = NULL;
 
     return code_err;
 }
 
 
-static CodeError FindLabels(char* input_code_buf, int input_code_bufsize,
-                            Label labels_mas[MAX_LABELS_MAS_SIZE])
+static int GetMarkCmdNum(Mark* marks_mas, const char* mark_name)
 {
-    char* end_inp_buf        = input_code_buf + input_code_bufsize;
-    char  word[MAX_WORD_LEN] = {};
+    for (int i = 0; i < MAX_MARKS_MAS_SIZE; ++i)
+        if (strcmp(marks_mas[i].name, mark_name) == 0)
+            return marks_mas[i].cmd_num;
 
-    int   labels_idx         = 0;
-    int   cmd_number         = 0;
-
-    while (input_code_buf < end_inp_buf)
-    {
-        if (sscanf(input_code_buf, "%s", word) != 0)
-        {
-            if (*word != ';')
-            {
-                if (word[strlen(word) - 1] == ':')
-                {
-                    if (labels_idx < MAX_LABELS_MAS_SIZE)
-                    {
-                        labels_mas[labels_idx] = {0, cmd_number};
-                        strcpy(labels_mas[labels_idx].name, word);
-                        ++labels_idx;
-                    }
-
-                    else
-                        return TOO_MUCH_LABELS_ERR;
-                }
-
-                else
-                    ++cmd_number;
-            }
-
-            BufNextString(&input_code_buf);
-        }
-    }
-
-    return NO_ERROR;
+    return -1;
 }
 
 
-static CodeError RunCode(char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZE])
+static char GetRegisterNum(const char* reg_name)
+{
+    for (int i = 0; i < NUMBER_OF_REGISTERS; ++i)
+        if (strcmp(reg_name, REGISTERS[i]) == 0)
+            return (char) (i+1);
+
+    return 0;
+}
+
+
+static CodeError RunCode(const char* asm_file_name)
 {
     CodeError code_err = NO_ERROR;
 
     char* code_buf = NULL;
     int code_bufsize = 0;
-    if ((code_err = MyFread(&code_buf, &code_bufsize, asm_code_file)) != NO_ERROR)
+    if ((code_err = MyFread(&code_buf, &code_bufsize, asm_file_name)) != NO_ERROR)
         return code_err;
 
     size_t stack = 0;
@@ -340,10 +392,7 @@ static CodeError RunCode(char* asm_code_buf, Label labels_mas[MAX_LABELS_MAS_SIZ
 
 CodeError RunMainProgram()
 {
-    char* asm_code_buf = NULL;
-    Label labels_mas[MAX_LABELS_MAS_SIZE] = {};
-
-    CodeError code_err = CodeAssemble(INPUT_CODE_FILE_NAME, OUTPUT_CODE_FILE_NAME, asm_code_buf, labels_mas);
+    CodeError code_err = CodeAssemble(INPUT_CODE_FILE_NAME, OUTPUT_CODE_FILE_NAME);
     if (code_err != NO_ERROR)
         return code_err;
 
@@ -351,12 +400,12 @@ CodeError RunMainProgram()
     printf(MAG "Program assembled succesfully\nWanna run it? (Y / N)" WHT "\n");
 
     if (((user_answer = getchar()) == 'Y' || user_answer == 'y' || user_answer == 'N'
-          || user_answer == 'n') & getchar() == '\n')
+          || user_answer == 'n') & (getchar() == '\n'))
     {
         if (user_answer == 'Y' || user_answer == 'y')
         {
             printf(MAG "Starting program" WHT "\n");
-            RunCode(asm_code_buf, labels_mas);
+            RunCode(OUTPUT_CODE_FILE_NAME);
         }
 
         else
@@ -367,4 +416,44 @@ CodeError RunMainProgram()
         printf(RED "Sorry, I don't know such command" WHT "\n");
 
     return code_err;
+}
+
+
+static CodeError ScanMarks(char* input_code_buf, int input_code_bufsize,
+                            Mark marks_mas[MAX_MARKS_MAS_SIZE])
+{
+    char* end_inp_buf        = input_code_buf + input_code_bufsize;
+    char  instruction[MAX_INSTR_LEN] = {};
+
+    int   marks_idx         = 0;
+    int   cmd_number         = 0;
+
+    while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", instruction) != 0)
+    {
+        if (*instruction != ';')
+        {
+            if (instruction[strlen(instruction) - 1] == ':')
+            {
+                if (marks_idx < MAX_MARKS_MAS_SIZE)
+                {
+                    strcpy(marks_mas[marks_idx].name, instruction);
+                    marks_mas[marks_idx].cmd_num = cmd_number;
+                    ++marks_idx;
+                }
+
+                else
+                    return TOO_MUCH_MARKS_ERR;
+            }
+
+            else
+                ++cmd_number;
+
+            BufNextWord(&input_code_buf);
+        }
+
+        else
+            BufNextString(&input_code_buf);
+    }
+
+    return NO_ERROR;
 }
