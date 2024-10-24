@@ -47,7 +47,7 @@ struct Mark
 // ------------------------------------------------------------------------------------------------------------
 
 static bool      CheckMarkNeces(const char* cmd);
-static int       PutArg        (char** input_code_buf, char** output_code_buf,
+static int       GetCmd        (char** input_code_buf, char* output_code_buf,
                                 size_t* outbuf_idx, SPUCommands cmd_type);
 static int       GetMarkCmdNum (Mark* marks_arr, const char* mark_name);
 static char      GetRegisterNum(const char* reg_name);
@@ -115,26 +115,12 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
 
             else if (strcmp(cmd, PUSH_CMD_TEXT) == 0)
             {
-
+                GetCmd(&input_code_buf, output_code_buf, &outbuf_idx, CMD_PUSH);
             }
 
             else if (strcmp(cmd, POP_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) CMD_POP;
-                ++outbuf_idx;
-
-                BufNextWord(&input_code_buf);
-                sscanf(input_code_buf, "%s", cmd);
-
-                char register_number = GetRegisterNum(cmd);
-                if (register_number == 0)
-                {
-                    printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", cmd);
-                    return UNKNOWN_REG_NAME_ERR;
-                }
-
-                output_code_buf[outbuf_idx] = register_number;
-                ++outbuf_idx;
+                GetCmd(&input_code_buf, output_code_buf, &outbuf_idx, CMD_POP);
             }
 
             else if (strcmp(cmd, ADD_CMD_TEXT) == 0)  // TODO: delete copypaste
@@ -248,12 +234,14 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
 }
 
 
-static int PutArg(char** input_code_buf, char** output_code_buf,
+static int GetCmd(char** input_code_buf, char* output_code_buf,
                   size_t* outbuf_idx, SPUCommands cmd_type)
 {
+    int num_of_added_bytes = 0;
+
     char arg[MAX_CMD_LEN] = {};
     char add_arg_str[MAX_CMD_LEN] = {};
-    char add_arg_int = 0;
+    StackElem_t add_arg_num = 0;
     char register_number  = 0;
 
     BufNextWord(input_code_buf);
@@ -261,57 +249,71 @@ static int PutArg(char** input_code_buf, char** output_code_buf,
 
     if (StrIsNum(arg) && cmd_type == CMD_PUSH)
     {
-        (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | IMM_T_BITMASK;
+        output_code_buf[*outbuf_idx] = ((char) cmd_type) | IMM_T_BITMASK;
         ++(*outbuf_idx);
+        ++num_of_added_bytes;
 
-        *(StackElem_t*) (*output_code_buf + *outbuf_idx) = (StackElem_t) atof(arg);
+        *(StackElem_t*) (output_code_buf + *outbuf_idx) = (StackElem_t) atof(arg);
         *outbuf_idx += sizeof(StackElem_t);
+        num_of_added_bytes += sizeof(StackElem_t);
     }
 
     else if ((register_number = GetRegisterNum(arg)) != 0 && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
     {
-        (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | REG_T_BITMASK;
+        output_code_buf[*outbuf_idx] = ((char) cmd_type) | REG_T_BITMASK;
         ++(*outbuf_idx);
+        ++num_of_added_bytes;
 
-        *(output_code_buf)[*outbuf_idx] = register_number;
+        output_code_buf[*outbuf_idx] = register_number;
         ++(*outbuf_idx);
+        ++num_of_added_bytes;
     }
 
     else if (arg[0] == '[' && arg[strlen(arg)-1] == ']' && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
     {
-        sscanf(arg, "[%[^]]]", &add_arg_str);
+        sscanf(arg, "[%[^]]]", add_arg_str);
 
         if (StrIsNum(add_arg_str))
         {
-            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | IMM_T_BITMASK;
+            output_code_buf[*outbuf_idx] = (unsigned char) (cmd_type | MEM_T_BITMASK | IMM_T_BITMASK);
             ++(*outbuf_idx);
+            ++num_of_added_bytes;
 
-            *(int*) (*output_code_buf + *outbuf_idx) = atoi(add_arg_str);
-            *outbuf_idx += sizeof(int);
+            output_code_buf[*outbuf_idx] = (char) atoi(add_arg_str);
+            ++(*outbuf_idx);
+            ++num_of_added_bytes;
         }
 
-        else if (sscanf(arg, "[%[^]]]", &add_arg_str) == 1 &&
+        else if (sscanf(arg, "[%[^]]]", add_arg_str) == 1 &&
                  (register_number = GetRegisterNum(add_arg_str)) != 0)
         {
-            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | REG_T_BITMASK;
+            output_code_buf[*outbuf_idx] = (unsigned char) (cmd_type | MEM_T_BITMASK | REG_T_BITMASK);
             ++(*outbuf_idx);
+            ++num_of_added_bytes;
 
-            *(output_code_buf)[*outbuf_idx] = register_number;
+            output_code_buf[*outbuf_idx] = register_number;
             ++(*outbuf_idx);
+            ++num_of_added_bytes;
         }
 
-        else if (sscanf(arg, "[%d+%s]", &add_arg_int, add_arg_str) == 2 ||
-                 sscanf(arg, "[%[^+]+%d]", add_arg_str, &add_arg_int) == 2)
+        else if (sscanf(arg, "[%hhd+%s]", &add_arg_num, add_arg_str) == 2 ||
+                 sscanf(arg, "[%[^+]+%hhd]", add_arg_str, &add_arg_num) == 2)
         {
-            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK;
+            output_code_buf[*outbuf_idx] = (unsigned char) (cmd_type | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK);
             ++(*outbuf_idx);
+            ++num_of_added_bytes;
 
-            *(output_code_buf)[*outbuf_idx] = register_number;
+            output_code_buf[*outbuf_idx] = add_arg_num;
+            *(StackElem_t*) (output_code_buf + *outbuf_idx)
+            num_of_added_bytes += sizeof(StackElem_t);
+
+            output_code_buf[*outbuf_idx] = register_number;
             ++(*outbuf_idx);
+            ++num_of_added_bytes;
         }
     }
 
-    return NO_ERROR;
+    return num_of_added_bytes;
 }
 
 
