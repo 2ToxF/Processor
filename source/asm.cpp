@@ -47,6 +47,8 @@ struct Mark
 // ------------------------------------------------------------------------------------------------------------
 
 static bool      CheckMarkNeces(const char* cmd);
+static int       PutArg        (char** input_code_buf, char** output_code_buf,
+                                size_t* outbuf_idx, SPUCommands cmd_type);
 static int       GetMarkCmdNum (Mark* marks_arr, const char* mark_name);
 static char      GetRegisterNum(const char* reg_name);
 static CodeError ScanMarks     (char* input_code_buf, int input_code_bufsize,
@@ -113,33 +115,7 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
 
             else if (strcmp(cmd, PUSH_CMD_TEXT) == 0)
             {
-                BufNextWord(&input_code_buf);
-                sscanf(input_code_buf, "%s", cmd);
 
-                if (StrIsNum(cmd))
-                {
-                    output_code_buf[outbuf_idx] = (char) CMD_PUSH | IMM_T_BITMASK;
-                    ++outbuf_idx;
-
-                    *(StackElem_t*) (output_code_buf + outbuf_idx) = (StackElem_t) atof(cmd);
-                    outbuf_idx += sizeof(StackElem_t);
-                }
-
-                else
-                {
-                    char register_number = GetRegisterNum(cmd);
-                    if (register_number == 0)
-                    {
-                        printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", cmd);
-                        return UNKNOWN_REG_NAME_ERR;
-                    }
-
-                    output_code_buf[outbuf_idx] = (char) CMD_PUSH | REG_T_BITMASK;
-                    ++outbuf_idx;
-
-                    output_code_buf[outbuf_idx] = register_number;
-                    ++outbuf_idx;
-                }
             }
 
             else if (strcmp(cmd, POP_CMD_TEXT) == 0)
@@ -270,6 +246,74 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
 
     return code_err;
 }
+
+
+static int PutArg(char** input_code_buf, char** output_code_buf,
+                  size_t* outbuf_idx, SPUCommands cmd_type)
+{
+    char arg[MAX_CMD_LEN] = {};
+    char add_arg_str[MAX_CMD_LEN] = {};
+    char add_arg_int = 0;
+    char register_number  = 0;
+
+    BufNextWord(input_code_buf);
+    sscanf(*input_code_buf, "%s", arg);
+
+    if (StrIsNum(arg) && cmd_type == CMD_PUSH)
+    {
+        (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | IMM_T_BITMASK;
+        ++(*outbuf_idx);
+
+        *(StackElem_t*) (*output_code_buf + *outbuf_idx) = (StackElem_t) atof(arg);
+        *outbuf_idx += sizeof(StackElem_t);
+    }
+
+    else if ((register_number = GetRegisterNum(arg)) != 0 && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
+    {
+        (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | REG_T_BITMASK;
+        ++(*outbuf_idx);
+
+        *(output_code_buf)[*outbuf_idx] = register_number;
+        ++(*outbuf_idx);
+    }
+
+    else if (arg[0] == '[' && arg[strlen(arg)-1] == ']' && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
+    {
+        sscanf(arg, "[%[^]]]", &add_arg_str);
+
+        if (StrIsNum(add_arg_str))
+        {
+            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | IMM_T_BITMASK;
+            ++(*outbuf_idx);
+
+            *(int*) (*output_code_buf + *outbuf_idx) = atoi(add_arg_str);
+            *outbuf_idx += sizeof(int);
+        }
+
+        else if (sscanf(arg, "[%[^]]]", &add_arg_str) == 1 &&
+                 (register_number = GetRegisterNum(add_arg_str)) != 0)
+        {
+            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | REG_T_BITMASK;
+            ++(*outbuf_idx);
+
+            *(output_code_buf)[*outbuf_idx] = register_number;
+            ++(*outbuf_idx);
+        }
+
+        else if (sscanf(arg, "[%d+%s]", &add_arg_int, add_arg_str) == 2 ||
+                 sscanf(arg, "[%[^+]+%d]", add_arg_str, &add_arg_int) == 2)
+        {
+            (*output_code_buf)[*outbuf_idx] = (char) CMD_PUSH | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK;
+            ++(*outbuf_idx);
+
+            *(output_code_buf)[*outbuf_idx] = register_number;
+            ++(*outbuf_idx);
+        }
+    }
+
+    return NO_ERROR;
+}
+
 
 static int GetMarkCmdNum(Mark* marks_arr, const char* mark_name)
 {
