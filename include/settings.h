@@ -1,6 +1,6 @@
 /*!
     \file
-    FIle with one macros which defines debug mode
+    FIle with things which defines main settings of the program
 */
 
 #ifndef DEBUG_MODE_H
@@ -17,6 +17,9 @@
 
 /// @brief Type of stack elements
 typedef double StackElem_t;
+
+const char* const INPUT_CODE_FILE_NAME  = "factorial.asm";
+const char* const OUTPUT_CODE_FILE_NAME = "output_code";
 
 enum CodeError
 {

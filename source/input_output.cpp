@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "input_output.h"
-#include "settings.h"
 #include "utils.h"
 
 

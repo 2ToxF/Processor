@@ -1,6 +1,7 @@
 #include <ctype.h>
-#include <stdint.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys\stat.h>
 
 #include "utils.h"
@@ -41,6 +42,14 @@ CodeError Fsize(const char* file_name, int* input_buffer_length)
 
     *input_buffer_length = input_file_stat.st_size + 1;
     return NO_ERROR;
+}
+
+
+void* MyRecalloc(void* mem_ptr, size_t new_size, size_t endof_used_mem)
+{
+    mem_ptr = realloc(mem_ptr, new_size);
+    memset((char*) mem_ptr + endof_used_mem, 0, new_size - endof_used_mem);
+    return mem_ptr;
 }
 
 

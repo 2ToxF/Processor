@@ -10,77 +10,90 @@
 
 // ------------------------------------------------------------------------------------------------------------
 
-static const char*   INPUT_CODE_FILE_NAME  = "input_code_v2.asm";
-static const char*   OUTPUT_CODE_FILE_NAME = "output_code";
-static const char    NULL_TARGET = '\0';
-
 static const int     START_OUT_BUFSIZE        = 100;
 static const int     REALLOC_COEF             = 2;
 static const int     REALLOC_LIMIT            = 50;
 
-static const int     MAX_INSTR_LEN = 40;
+static const int     MAX_CMD_LEN = 40;
 
+// static const uint8_t CMD_BITMASK   = 0b00011111;
 static const uint8_t MEM_T_BITMASK = 0b10000000;
 static const uint8_t REG_T_BITMASK = 0b01000000;
 static const uint8_t IMM_T_BITMASK = 0b00100000;
 
-static const char*   PUSH_CMD = "push";
-static const char*   POP_CMD  = "pop";
-static const char*   ADD_CMD  = "add";
-static const char*   SUB_CMD  = "sub";
-static const char*   DIV_CMD  = "div";
-static const char*   MULT_CMD = "mult";
-static const char*   IN_CMD   = "in";
-static const char*   OUT_CMD  = "out";
-static const char*   HLT_CMD  = "hlt";
-static const char*   JMP_CMD  = "jmp";
-static const char*   JE_CMD   = "je";
-static const char*   JNE_CMD  = "jne";
-static const char*   JA_CMD   = "ja";
-static const char*   JAE_CMD  = "jae";
-static const char*   JB_CMD   = "jb";
-static const char*   JBE_CMD  = "jbe";
+static const char*   HLT_CMD_TEXT  = "hlt";
+static const char*   PUSH_CMD_TEXT = "push";
+static const char*   POP_CMD_TEXT  = "pop";
+static const char*   ADD_CMD_TEXT  = "add";
+static const char*   SUB_CMD_TEXT  = "sub";
+static const char*   DIV_CMD_TEXT  = "div";
+static const char*   MULT_CMD_TEXT = "mult";
+static const char*   IN_CMD_TEXT   = "in";
+static const char*   OUT_CMD_TEXT  = "out";
+static const char*   RET_CMD_TEXT  = "ret";
+static const char*   CALL_CMD_TEXT = "call";
+static const char*   JMP_CMD_TEXT  = "jmp";
+static const char*   JE_CMD_TEXT   = "je";
+static const char*   JNE_CMD_TEXT  = "jne";
+static const char*   JA_CMD_TEXT   = "ja";
+static const char*   JAE_CMD_TEXT  = "jae";
+static const char*   JB_CMD_TEXT   = "jb";
+static const char*   JBE_CMD_TEXT  = "jbe";
 
 static const int     NUMBER_OF_REGISTERS = 4;
 static const char*   REGISTERS[NUMBER_OF_REGISTERS] = {"AX", "BX", "CX", "DX"};
 
-static const int     MAX_MARKS_MAS_SIZE = 10;
+static const int     MAX_MARKS_ARR_SIZE = 10;
 
-enum SPUComands
+enum SPUCommands
 {
-    HLT = -1,
+    CMD_HLT = -1,
 
-    PUSH,
-    POP,
+    CMD_PUSH,
+    CMD_POP,
 
-    ADD,
-    SUB,
-    DIV,
-    MULT,
+    CMD_ADD,
+    CMD_SUB,
+    CMD_DIV,
+    CMD_MULT,
 
-    IN,
-    OUT,
+    CMD_IN,
+    CMD_OUT,
 
-    JMP,
-    JE, JNE,
-    JA, JAE,
-    JB, JBE,
+    CMD_RET,
+    CMD_CALL,
+
+    CMD_JMP,
+    CMD_JE, CMD_JNE,
+    CMD_JA, CMD_JAE,
+    CMD_JB, CMD_JBE,
 };
 
 struct Mark
 {
-    char name[MAX_INSTR_LEN];
+    char name[MAX_CMD_LEN];
     int cmd_num;
 };
 
 // ------------------------------------------------------------------------------------------------------------
 
+static bool      CheckMarkNeces(const char* cmd);
 static CodeError CodeAssemble  (const char* input_file_name, const char* output_file_name);
-static int       GetMarkCmdNum (Mark* marks_mas, const char* mark_name);
+static int       GetMarkCmdNum (Mark* marks_arr, const char* mark_name);
 static char      GetRegisterNum(const char* reg_name);
 static CodeError RunCode       (const char* asm_file_name);
 static CodeError ScanMarks     (char* input_code_buf, int input_code_bufsize,
-                                Mark marks_mas[MAX_MARKS_MAS_SIZE]);
+                                Mark marks_arr[MAX_MARKS_ARR_SIZE]);
+
+
+static bool CheckMarkNeces(const char* cmd)
+{
+    return strcmp(JMP_CMD_TEXT, cmd) == 0 || strcmp(JE_CMD_TEXT,   cmd) == 0 ||
+           strcmp(JNE_CMD_TEXT, cmd) == 0 || strcmp(JA_CMD_TEXT,   cmd) == 0 ||
+           strcmp(JAE_CMD_TEXT, cmd) == 0 || strcmp(JB_CMD_TEXT,   cmd) == 0 ||
+           strcmp(JBE_CMD_TEXT, cmd) == 0 || strcmp(CALL_CMD_TEXT, cmd) == 0;
+}
+
 
 static CodeError CodeAssemble(const char* input_file_name, const char* output_file_name)
 {
@@ -95,8 +108,8 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
     if (out_fptr == NULL)
         return FILE_NOT_OPENED_ERR;
 
-    Mark marks_mas[MAX_MARKS_MAS_SIZE] = {};
-    if ((code_err = ScanMarks(input_code_buf, input_code_bufsize, marks_mas)) != NO_ERROR)
+    Mark marks_arr[MAX_MARKS_ARR_SIZE] = {};
+    if ((code_err = ScanMarks(input_code_buf, input_code_bufsize, marks_arr)) != NO_ERROR)
         return code_err;
 
     char*  start_inp_buf    = input_code_buf;
@@ -106,13 +119,13 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
     char*  output_code_buf  = (char*) calloc(outbuf_size, sizeof(char));
     size_t outbuf_idx       = 0;
 
-    char instruction[MAX_INSTR_LEN] = {};
+    char cmd[MAX_CMD_LEN] = {};
 
-    while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", instruction) != 0)
+    while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", cmd) != 0) // TODO: move to function
     {
-        if (instruction[0] != ';')
+        if (cmd[0] != ';') // TODO: у тебя огромное тело цикла, каждый блок ифа в отдельную функцию, какие нахуй 200 строк на функции ты ебнулся
         {
-            if (instruction[strlen(instruction) - 1] == ':')
+            if (cmd[strlen(cmd) - 1] == ':')
             {
                 BufNextString(&input_code_buf);
                 continue;
@@ -121,35 +134,39 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
             if (outbuf_idx > outbuf_size - REALLOC_LIMIT)
             {
                 outbuf_size *= REALLOC_COEF;
-                output_code_buf = (char*) realloc(output_code_buf, outbuf_size);
-                memset(&output_code_buf[outbuf_idx], 0, outbuf_size - outbuf_idx);
+                output_code_buf = (char*) MyRecalloc(output_code_buf, outbuf_size, outbuf_idx);
             }
 
+            if (strcmp(cmd, HLT_CMD_TEXT) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) CMD_HLT;
+                ++outbuf_idx;
+            }
 
-            if (strcmp(instruction, PUSH_CMD) == 0)
+            else if (strcmp(cmd, PUSH_CMD_TEXT) == 0)
             {
                 BufNextWord(&input_code_buf);
-                sscanf(input_code_buf, "%s", instruction);
+                sscanf(input_code_buf, "%s", cmd);
 
-                if (StrIsNum(instruction))
+                if (StrIsNum(cmd))
                 {
-                    output_code_buf[outbuf_idx] = (char) PUSH | IMM_T_BITMASK;
+                    output_code_buf[outbuf_idx] = (char) CMD_PUSH | IMM_T_BITMASK;
                     ++outbuf_idx;
 
-                    *(StackElem_t*) (output_code_buf + outbuf_idx) = (StackElem_t) atof(instruction);
+                    *(StackElem_t*) (output_code_buf + outbuf_idx) = (StackElem_t) atof(cmd);
                     outbuf_idx += sizeof(StackElem_t);
                 }
 
                 else
                 {
-                    char register_number = GetRegisterNum(instruction);
+                    char register_number = GetRegisterNum(cmd);
                     if (register_number == 0)
                     {
-                        printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", instruction);
+                        printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", cmd);
                         return UNKNOWN_REG_NAME_ERR;
                     }
 
-                    output_code_buf[outbuf_idx] = (char) PUSH | REG_T_BITMASK;
+                    output_code_buf[outbuf_idx] = (char) CMD_PUSH | REG_T_BITMASK;
                     ++outbuf_idx;
 
                     output_code_buf[outbuf_idx] = register_number;
@@ -157,18 +174,18 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
                 }
             }
 
-            else if (strcmp(instruction, POP_CMD) == 0)
+            else if (strcmp(cmd, POP_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) POP;
+                output_code_buf[outbuf_idx] = (char) CMD_POP;
                 ++outbuf_idx;
 
                 BufNextWord(&input_code_buf);
-                sscanf(input_code_buf, "%s", instruction);
+                sscanf(input_code_buf, "%s", cmd);
 
-                char register_number = GetRegisterNum(instruction);
+                char register_number = GetRegisterNum(cmd);
                 if (register_number == 0)
                 {
-                    printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", instruction);
+                    printf(RED "ERROR: Meet undefined register during assembling: %s" WHT "\n", cmd);
                     return UNKNOWN_REG_NAME_ERR;
                 }
 
@@ -176,85 +193,88 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, ADD_CMD) == 0)
+            else if (strcmp(cmd, ADD_CMD_TEXT) == 0)  // TODO: delete copypaste
             {
-                output_code_buf[outbuf_idx] = (char) ADD;
+                output_code_buf[outbuf_idx] = (char) CMD_ADD;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, SUB_CMD) == 0)
+            else if (strcmp(cmd, SUB_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) SUB;
+                output_code_buf[outbuf_idx] = (char) CMD_SUB;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, DIV_CMD) == 0)
+            else if (strcmp(cmd, DIV_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) DIV;
+                output_code_buf[outbuf_idx] = (char) CMD_DIV;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, MULT_CMD) == 0)
+            else if (strcmp(cmd, MULT_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) MULT;
+                output_code_buf[outbuf_idx] = (char) CMD_MULT;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, IN_CMD) == 0)
+            else if (strcmp(cmd, IN_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) IN;
+                output_code_buf[outbuf_idx] = (char) CMD_IN;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, OUT_CMD) == 0)
+            else if (strcmp(cmd, OUT_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) OUT;
+                output_code_buf[outbuf_idx] = (char) CMD_OUT;
                 ++outbuf_idx;
             }
 
-            else if (strcmp(instruction, HLT_CMD) == 0)
+            else if (strcmp(cmd, RET_CMD_TEXT) == 0)
             {
-                output_code_buf[outbuf_idx] = (char) HLT;
+                output_code_buf[outbuf_idx] = (char) CMD_RET;
                 ++outbuf_idx;
             }
 
-            else if (instruction[0] == 'j')
+            else if (CheckMarkNeces(cmd))
             {
                 BufNextWord(&input_code_buf);
-                char mark_name[MAX_INSTR_LEN] = {};
+                char mark_name[MAX_CMD_LEN] = {};
                 sscanf(input_code_buf, "%s", mark_name);
 
-                int cmd_num = GetMarkCmdNum(marks_mas, mark_name);
+                int cmd_num = GetMarkCmdNum(marks_arr, mark_name);
                 if (cmd_num == -1)
                 {
                     printf(RED "ERROR: Meet undefined mark during assembling: %s" WHT "\n", mark_name);
                     return UNKNOWN_MARK_NAME_ERR;
                 }
 
-                else if (strcmp(JMP_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JMP;
+                else if (strcmp(JMP_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JMP;
 
-                else if (strcmp(JE_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JE;
+                else if (strcmp(JE_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JE;
 
-                else if (strcmp(JNE_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JNE;
+                else if (strcmp(JNE_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JNE;
 
-                else if (strcmp(JA_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JA;
+                else if (strcmp(JA_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JA;
 
-                else if (strcmp(JAE_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JAE;
+                else if (strcmp(JAE_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JAE;
 
-                else if (strcmp(JB_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JB;
+                else if (strcmp(JB_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JB;
 
-                else if (strcmp(JBE_CMD, instruction) == 0)
-                    output_code_buf[outbuf_idx] = (char) JBE;
+                else if (strcmp(JBE_CMD_TEXT, cmd) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_JBE;
+
+                else if (strcmp(cmd, CALL_CMD_TEXT) == 0)
+                    output_code_buf[outbuf_idx] = (char) CMD_CALL;
 
                 else
                 {
-                    printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", instruction);
+                    printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", cmd);
                     return UNKNOWN_ASM_CMD_ERR;
                 }
 
@@ -265,9 +285,11 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
 
             else
             {
-                printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", instruction);
+                printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", cmd);
                 return UNKNOWN_ASM_CMD_ERR;
             }
+
+            cmd[0] = ';';
         }
 
         BufNextString(&input_code_buf);
@@ -282,11 +304,11 @@ static CodeError CodeAssemble(const char* input_file_name, const char* output_fi
 }
 
 
-static int GetMarkCmdNum(Mark* marks_mas, const char* mark_name)
+static int GetMarkCmdNum(Mark* marks_arr, const char* mark_name)
 {
-    for (int i = 0; i < MAX_MARKS_MAS_SIZE; ++i)
-        if (strcmp(marks_mas[i].name, mark_name) == 0)
-            return marks_mas[i].cmd_num;
+    for (int i = 0; i < MAX_MARKS_ARR_SIZE; ++i)
+        if (strcmp(marks_arr[i].name, mark_name) == 0)
+            return marks_arr[i].cmd_num;
 
     return -1;
 }
@@ -311,106 +333,127 @@ static CodeError RunCode(const char* asm_file_name)
     if ((code_err = MyFread(&code_buf, &code_bufsize, asm_file_name)) != NO_ERROR)
         return code_err;
 
-    size_t stack = 0;
-    if (CREATE_STACK(&stack) != STK_NO_ERROR)
+    size_t stack_num = 0;
+    if (CREATE_STACK(&stack_num) != STK_NO_ERROR)
         return STACK_ERR;
 
-    StackElem_t reg_mas[NUMBER_OF_REGISTERS+1] = {};
+    size_t stack_func_ret = 0;
+    if (CREATE_STACK(&stack_func_ret) != STK_NO_ERROR)
+        return STACK_ERR;
+
+    StackElem_t reg_arr[NUMBER_OF_REGISTERS+1] = {};
 
     int ip = 0;
     StackElem_t temp_num1 = 0;
     StackElem_t temp_num2 = 0;
 
-    while (true)
+    while (true) // TODO: поразбивай на функции и мб кодогенерацию
     {
+        // printf(GRN "%d: %d" WHT "\n", ip, code_buf[ip]);
         switch (code_buf[ip++])
         {
-            case HLT:
+            case CMD_HLT:
                 return NO_ERROR;
 
-            case (PUSH | IMM_T_BITMASK):
+            case (CMD_PUSH | IMM_T_BITMASK): // TODO: проверяй только последний бит который отвечает за тип команды, дальше HandlePush и все проверки там
             {
-                StackPush(stack, *(StackElem_t*) &code_buf[ip]);
+                StackPush(stack_num, *(StackElem_t*) &code_buf[ip]);
                 ip += sizeof(StackElem_t);
                 break;
             }
 
-            case (PUSH | REG_T_BITMASK):
+            case (CMD_PUSH | REG_T_BITMASK):
             {
-                StackPush(stack, reg_mas[(int) code_buf[ip]]);
+                StackPush(stack_num, reg_arr[(int) code_buf[ip]]);
                 ++ip;
                 break;
             }
 
-            case POP:
+            case CMD_POP:
             {
-                StackPop(stack, &reg_mas[(int) code_buf[ip]]);
+                StackPop(stack_num, &reg_arr[(int) code_buf[ip]]);
                 ++ip;
                 break;
             }
 
-            case ADD:
+            case CMD_ADD:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
-                StackPush(stack, temp_num2 + temp_num1);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
+                StackPush(stack_num, temp_num2 + temp_num1);
 
                 break;
             }
 
-            case SUB:
+            case CMD_SUB:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
-                StackPush(stack, temp_num2 - temp_num1);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
+                StackPush(stack_num, temp_num2 - temp_num1);
 
                 break;
             }
 
-            case DIV:
+            case CMD_DIV:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
-                StackPush(stack, temp_num2 / temp_num1);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
+                StackPush(stack_num, temp_num2 / temp_num1);
 
                 break;
             }
 
-            case MULT:
+            case CMD_MULT:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
-                StackPush(stack, temp_num2 * temp_num1);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
+                StackPush(stack_num, temp_num2 * temp_num1);
 
                 break;
             }
 
-            case IN:
+            case CMD_IN:
             {
                 scanf("%lf", &temp_num1);
-                StackPush(stack, temp_num1);
+                StackPush(stack_num, temp_num1);
 
                 break;
             }
 
-            case OUT:
+            case CMD_OUT:
             {
-                StackPop(stack, &temp_num1);
+                StackPop(stack_num, &temp_num1);
                 printf(YEL "%g" WHT "\n", temp_num1);
 
                 break;
             }
 
-            case JMP:
+            case CMD_RET:
+            {
+                StackElem_t temp_ip = 0;
+                StackPop(stack_func_ret, &temp_ip);
+                ip = (int) temp_ip;
+
+                break;
+            }
+
+            case CMD_CALL:
+            {
+                StackPush(stack_func_ret, (StackElem_t) (ip + sizeof(int)));
+                ip = *(int*) &code_buf[ip];
+                break;
+            }
+
+            case CMD_JMP:
             {
                 ip = *(int*) &code_buf[ip];
                 break;
             }
 
-            case JE:
+            case CMD_JE:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (IsEqual(temp_num2, temp_num1))
                 {
@@ -418,13 +461,14 @@ static CodeError RunCode(const char* asm_file_name)
                     break;
                 }
 
+                ip += sizeof(int);
                 break;
             }
 
-            case JNE:
+            case CMD_JNE:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (!IsEqual(temp_num2, temp_num1))
                 {
@@ -436,10 +480,10 @@ static CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
-            case JA:
+            case CMD_JA:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (temp_num2 > temp_num1)
                 {
@@ -451,10 +495,10 @@ static CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
-            case JAE:
+            case CMD_JAE:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (temp_num2 >= temp_num1)
                 {
@@ -466,10 +510,10 @@ static CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
-            case JB:
+            case CMD_JB:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (temp_num2 < temp_num1)
                 {
@@ -481,10 +525,10 @@ static CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
-            case JBE:
+            case CMD_JBE:
             {
-                StackPop(stack, &temp_num1);
-                StackPop(stack, &temp_num2);
+                StackPop(stack_num, &temp_num1);
+                StackPop(stack_num, &temp_num2);
 
                 if (temp_num2 <= temp_num1)
                 {
@@ -504,7 +548,7 @@ static CodeError RunCode(const char* asm_file_name)
         }
     }
 
-    StackDtor(&stack);
+    StackDtor(&stack_num);
 
     return NO_ERROR;
 }
@@ -540,30 +584,30 @@ CodeError RunMainProgram()
 
 
 static CodeError ScanMarks(char* input_code_buf, int input_code_bufsize,
-                            Mark marks_mas[MAX_MARKS_MAS_SIZE])
+                            Mark marks_arr[MAX_MARKS_ARR_SIZE])
 {
-    char* end_inp_buf                = input_code_buf + input_code_bufsize;
-    char  instruction[MAX_INSTR_LEN] = {};
+    char* end_inp_buf = input_code_buf + input_code_bufsize;
+    char  cmd[MAX_CMD_LEN] = {};
 
     int   marks_idx          = 0;
     int   cmd_number         = 0;
 
     while (input_code_buf < end_inp_buf)
     {
-        if (sscanf(input_code_buf, "%s", instruction) != 0)
+        if (sscanf(input_code_buf, "%s", cmd) != 0)
         {
-            if (*instruction != ';')
+            if (*cmd != ';')
             {
-                size_t instr_len = strlen(instruction);
+                size_t cmd_len = strlen(cmd);
 
-                if (instruction[strlen(instruction) - 1] == ':')
+                if (cmd[cmd_len - 1] == ':')
                 {
-                    instruction[instr_len - 1] = '\0';
+                    cmd[cmd_len - 1] = '\0';
 
-                    if (marks_idx < MAX_MARKS_MAS_SIZE)
+                    if (marks_idx < MAX_MARKS_ARR_SIZE)
                     {
-                        strcpy(marks_mas[marks_idx].name, instruction);
-                        marks_mas[marks_idx].cmd_num = cmd_number;
+                        strcpy(marks_arr[marks_idx].name, cmd);
+                        marks_arr[marks_idx].cmd_num = cmd_number;
                         ++marks_idx;
                     }
 
@@ -571,8 +615,14 @@ static CodeError ScanMarks(char* input_code_buf, int input_code_bufsize,
                         return TOO_MUCH_MARKS_ERR;
                 }
 
-                else if (StrIsNum(instruction))
+                else if (StrIsNum(cmd))
                     cmd_number += sizeof(StackElem_t);
+
+                else if (CheckMarkNeces(cmd))
+                {
+                    cmd_number += sizeof(int) + 1;
+                    BufNextWord(&input_code_buf);
+                }
 
                 else
                     ++cmd_number;
@@ -584,6 +634,9 @@ static CodeError ScanMarks(char* input_code_buf, int input_code_bufsize,
                 BufNextString(&input_code_buf);
         }
     }
+
+    // for (int i = 0; i < MAX_MARKS_ARR_SIZE; ++i)
+    //     printf("Mark: %s, %d\n", marks_arr[i].name, marks_arr[i].cmd_num);
 
     return NO_ERROR;
 }
