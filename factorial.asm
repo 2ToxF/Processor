@@ -1,28 +1,23 @@
 in
-pop  BX
-
-push 1
-pop  AX
-push 1
-
 call FACT
 out
 hlt
 
 FACT:
-push AX
-push BX
-jae NEXT
+    pop  BX
+    push BX
 
-push 1
-push AX
-add
+    push BX
+    push 1
+    je STOP
 
-pop  AX
-push AX
+    push BX
+    push 1
+    sub
 
-mult
-call FACT
+    call FACT
+    mult
+    ret
 
-NEXT:
-ret
+    STOP:
+        ret

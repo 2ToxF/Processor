@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 
 #include "input_output.h"
@@ -91,6 +92,14 @@ CodeError RunCode(const char* asm_file_name)
                 StackPop(stack_num, &temp_num1);
                 StackPop(stack_num, &temp_num2);
                 StackPush(stack_num, temp_num2 * temp_num1);
+
+                break;
+            }
+
+            case CMD_SQRT:
+            {
+                StackPop(stack_num, &temp_num1);
+                StackPush(stack_num, sqrt(temp_num1));
 
                 break;
             }

@@ -22,6 +22,7 @@ enum SPUCommands
     CMD_SUB,
     CMD_DIV,
     CMD_MULT,
+    CMD_SQRT,
 
     CMD_IN,
     CMD_OUT,

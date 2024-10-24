@@ -22,6 +22,7 @@ static const char*   ADD_CMD_TEXT  = "add";
 static const char*   SUB_CMD_TEXT  = "sub";
 static const char*   DIV_CMD_TEXT  = "div";
 static const char*   MULT_CMD_TEXT = "mult";
+static const char*   SQRT_CMD_TEXT = "sqrt";
 static const char*   IN_CMD_TEXT   = "in";
 static const char*   OUT_CMD_TEXT  = "out";
 static const char*   RET_CMD_TEXT  = "ret";
@@ -182,6 +183,12 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
             else if (strcmp(cmd, MULT_CMD_TEXT) == 0)
             {
                 output_code_buf[outbuf_idx] = (char) CMD_MULT;
+                ++outbuf_idx;
+            }
+
+            else if (strcmp(cmd, SQRT_CMD_TEXT) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) CMD_SQRT;
                 ++outbuf_idx;
             }
 
