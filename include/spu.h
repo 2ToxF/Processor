@@ -3,6 +3,6 @@
 
 #include "settings.h"
 
-CodeError RunMainProgram();
+CodeError RunCode(const char* asm_file_name);
 
 #endif

@@ -1,5 +1,5 @@
-#include "spu.h"
 #include "input_output.h"
+#include "runner.h"
 
 int main()
 {
