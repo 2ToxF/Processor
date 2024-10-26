@@ -34,6 +34,7 @@ static const char*   JA_CMD_TEXT   = "ja";
 static const char*   JAE_CMD_TEXT  = "jae";
 static const char*   JB_CMD_TEXT   = "jb";
 static const char*   JBE_CMD_TEXT  = "jbe";
+static const char*   MEOW_CMD_TEXT = "meow";
 
 static const char*   REGISTERS[NUMBER_OF_REGISTERS] = {"AX", "BX", "CX", "DX"};
 
@@ -256,6 +257,12 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
                 ++outbuf_idx;
                 *((int*) (output_code_buf + outbuf_idx)) = cmd_num;
                 outbuf_idx += sizeof(int);
+            }
+
+            else if (strcmp(cmd, MEOW_CMD_TEXT) == 0)
+            {
+                output_code_buf[outbuf_idx] = (char) CMD_MEOW;
+                ++outbuf_idx;
             }
 
             else

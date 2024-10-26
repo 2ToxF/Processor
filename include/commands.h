@@ -34,6 +34,8 @@ enum SPUCommands
     CMD_JE, CMD_JNE,
     CMD_JA, CMD_JAE,
     CMD_JB, CMD_JBE,
+
+    CMD_MEOW,
 };
 
 #endif

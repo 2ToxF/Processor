@@ -232,6 +232,17 @@ CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
+            case CMD_MEOW:
+            {
+                StackPop(stack_num, &temp_num1);
+
+                for (int i = 0; i < temp_num1; ++i)
+                    printf(BLU "meow ");
+
+                printf(WHT "\n");
+                break;
+            }
+
             default:
             {
                 printf(RED "ERROR: Meet undefined command during processing: %d" WHT "\n", code_buf[ip-1]);

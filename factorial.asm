@@ -1,5 +1,11 @@
 in
 call FACT
+
+pop  AX
+push AX
+meow
+
+push AX
 out
 hlt
 
