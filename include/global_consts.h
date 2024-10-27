@@ -10,4 +10,14 @@ const uint8_t IMM_T_BITMASK      = 0b00100000;
 
 const int     NUM_OF_ACCESS_REGS = 4;
 
+#define DEF_CMD_(cmd_name, cmd_num, ...) \
+    CMD_##cmd_name = cmd_num,
+
+enum SPUCommands
+{
+    #include "commands.h"
+};
+
+#undef DEF_CMD_
+
 #endif

@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "commands.h"
 #include "global_consts.h"
 #include "input_output.h"
 #include "spu.h"
@@ -88,6 +87,11 @@ static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
 }
 
 
+#define DEF_CMD_(cmd_name, cmd_num, args_num, code)  \
+    case CMD_##cmd_name:                             \
+        {code}                                       \
+        break;
+
 CodeError RunCode(const char* asm_file_name)
 {
     CodeError code_err = NO_ERROR;
@@ -106,204 +110,19 @@ CodeError RunCode(const char* asm_file_name)
         return STACK_ERR;
 
     StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1] = {};
-    StackElem_t RAM[MAX_RAM_SIZE] = {};
+    StackElem_t RAM[MAX_RAM_SIZE]             = {};
 
     int ip = 0;
     StackElem_t temp_num1 = 0;
     StackElem_t temp_num2 = 0;
 
-    while (true) // TODO: поразбивай на функции и мб кодогенерацию
+    while (true)
     {
         char cmd = code_buf[ip++];
 
         switch (cmd & CMD_BITMASK)
         {
-            case CMD_HLT:
-                return NO_ERROR;
-
-            case CMD_PUSH:
-            {
-                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num);
-                break;
-            }
-
-            case CMD_POP:
-            {
-                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num);
-                break;
-            }
-
-            case CMD_ADD:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-                StackPush(stack_num, temp_num2 + temp_num1);
-
-                break;
-            }
-
-            case CMD_SUB:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-                StackPush(stack_num, temp_num2 - temp_num1);
-
-                break;
-            }
-
-            case CMD_DIV:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-                StackPush(stack_num, temp_num2 / temp_num1);
-
-                break;
-            }
-
-            case CMD_MUL:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-                StackPush(stack_num, temp_num2 * temp_num1);
-
-                break;
-            }
-
-            case CMD_SQRT:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPush(stack_num, sqrt(temp_num1));
-
-                break;
-            }
-
-            case CMD_IN:
-            {
-                scanf("%lf", &temp_num1);
-                StackPush(stack_num, temp_num1);
-
-                break;
-            }
-
-            case CMD_OUT:
-            {
-                StackPop(stack_num, &temp_num1);
-                printf(YEL "%g" WHT "\n", temp_num1);
-
-                break;
-            }
-
-            case CMD_RET:
-            {
-                StackElem_t temp_ip = 0;
-                StackPop(stack_func_ret, &temp_ip);
-                ip = (int) temp_ip;
-
-                break;
-            }
-
-            case CMD_CALL:
-            {
-                StackPush(stack_func_ret, (StackElem_t) (ip + sizeof(int)));
-                ip = *(int*) &code_buf[ip];
-                break;
-            }
-
-            case CMD_JMP:
-            {
-                ip = *(int*) &code_buf[ip];
-                break;
-            }
-
-            case CMD_JE:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (IsEqual(temp_num2, temp_num1))
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
-
-            case CMD_JNE:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (!IsEqual(temp_num2, temp_num1))
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
-
-            case CMD_JA:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (temp_num2 > temp_num1)
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
-
-            case CMD_JAE:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (temp_num2 >= temp_num1)
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
-
-            case CMD_JB:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (temp_num2 < temp_num1)
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
-
-            case CMD_JBE:
-            {
-                StackPop(stack_num, &temp_num1);
-                StackPop(stack_num, &temp_num2);
-
-                if (temp_num2 <= temp_num1)
-                {
-                    ip = *(int*) &code_buf[ip];
-                    break;
-                }
-
-                ip += sizeof(int);
-                break;
-            }
+            #include "commands.h"
 
             default:
             {
@@ -319,3 +138,5 @@ CodeError RunCode(const char* asm_file_name)
 
     return NO_ERROR;
 }
+
+#undef DEF_CMD_

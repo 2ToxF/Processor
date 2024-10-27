@@ -47,7 +47,8 @@ void PrintCodeError(CodeError code_err)
 
         ERR_DESCR_(OUT_OF_MEM_ERR);
         ERR_DESCR_(TOO_MUCH_MARKS_ERR);
-        ERR_DESCR_(UNKNOWN_ASM_CMD_ERR);
+        ERR_DESCR_(UNKNOWN_ARG_ASM_ERR);
+        ERR_DESCR_(UNKNOWN_CMD_ASM_ERR);
         ERR_DESCR_(UNKNOWN_MARK_NAME_ERR);
         ERR_DESCR_(UNKNOWN_REG_NAME_ERR);
 
