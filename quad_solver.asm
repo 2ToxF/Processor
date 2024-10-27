@@ -16,13 +16,13 @@ QUAD_SOLVER:
 
     push BX
     push BX
-    mult
+    mul
 
     push 4
     push AX
     push CX
-    mult
-    mult
+    mul
+    mul
 
     sub
     pop DX

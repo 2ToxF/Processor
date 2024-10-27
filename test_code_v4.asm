@@ -1,12 +1,15 @@
 in
-pop  [3]
-push [3]
-out
+pop  AX
 
 in
-in
-pop  AX
-push [AX+3]
-pop  [3+AX]
-push [3+AX]
+pop  [AX]
+
+push [AX]
 out
+
+push [AX]
+pop  [4+AX]
+push [4+AX]
+out
+
+hlt

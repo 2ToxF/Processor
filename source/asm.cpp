@@ -21,7 +21,8 @@ static const char* POP_CMD_TEXT  = "pop";
 static const char* ADD_CMD_TEXT  = "add";
 static const char* SUB_CMD_TEXT  = "sub";
 static const char* DIV_CMD_TEXT  = "div";
-static const char* MULT_CMD_TEXT = "mult";
+static const char* MUL_CMD_TEXT  = "mul";
+static const char* SQRT_CMD_TEXT = "sqrt";
 static const char* IN_CMD_TEXT   = "in";
 static const char* OUT_CMD_TEXT  = "out";
 static const char* RET_CMD_TEXT  = "ret";
@@ -190,9 +191,15 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
                 ++(*outbuf_idx);
             }
 
-            else if (strcmp(cmd, MULT_CMD_TEXT) == 0)
+            else if (strcmp(cmd, MUL_CMD_TEXT) == 0)
             {
-                (*output_code_buf)[*outbuf_idx] = (char) CMD_MULT;
+                (*output_code_buf)[*outbuf_idx] = (char) CMD_MUL;
+                ++(*outbuf_idx);
+            }
+
+            else if (strcmp(cmd, SQRT_CMD_TEXT) == 0)
+            {
+                (*output_code_buf)[*outbuf_idx] = (char) CMD_SQRT;
                 ++(*outbuf_idx);
             }
 
@@ -336,8 +343,9 @@ static void GetCmdWithArg(char** input_code_buf, char* output_code_buf,
             ++(*outbuf_idx);
         }
 
-        else if (sscanf(arg, "[%lf+%s]", &add_arg_num, add_arg_str) == 2 ||
-                 sscanf(arg, "[%[^+]+%lf]", add_arg_str, &add_arg_num) == 2)
+        else if ((sscanf(arg, "[%lf+%[^]]]", &add_arg_num, add_arg_str) == 2 ||
+                 sscanf(arg, "[%[^+]+%lf]", add_arg_str, &add_arg_num) == 2) &&
+                 (register_number = GetRegisterNum(add_arg_str)) != 0)
         {
             output_code_buf[*outbuf_idx] = (unsigned char) (cmd_type | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK);
             ++(*outbuf_idx);

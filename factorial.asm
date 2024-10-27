@@ -16,7 +16,7 @@ FACT:
     sub
 
     call FACT
-    mult
+    mul
     ret
 
     STOP:

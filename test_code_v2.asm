@@ -4,7 +4,7 @@ pop  AX
 NEXT:
 push AX
 push AX
-mult
+mul
 out
 
 push AX

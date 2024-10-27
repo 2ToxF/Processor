@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 
 #include "input_output.h"
@@ -8,49 +9,26 @@
 
 static const int MAX_RAM_SIZE = 256;
 
-static bool CheckSpuMarkNeces(char cmd_type);
-static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
-                         StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
-                         size_t stack_num, size_t stack_func_ret);
-static void HandleCmdMarkArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             size_t stack_func_ret);
-static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
-                            StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
-                            size_t stack_num);
+static void HandleCmdArg    (char* code_buf, int* ip_ptr, char cmd_type,
+                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             size_t stack_num);
+static void HandleCmdPopArg (char* code_buf, int* ip_ptr, char cmd_type,
+                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             size_t stack_num);
 static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
                              StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 
 
-static bool CheckSpuMarkNeces(char cmd_type)
-{
-    return cmd_type == CMD_JMP || cmd_type == CMD_JE  || cmd_type == CMD_JNE ||
-           cmd_type == CMD_JA  || cmd_type == CMD_JAE || cmd_type == CMD_JB  ||
-           cmd_type == CMD_JBE || cmd_type == CMD_CALL;
-}
-
-
 static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
                          StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
-                         size_t stack_num, size_t stack_func_ret)
+                         size_t stack_num)
 {
     if ((cmd_type & CMD_BITMASK) == CMD_PUSH)
         HandleCmdPushArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
 
     else if ((cmd_type & CMD_BITMASK) == CMD_POP)
         HandleCmdPopArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
-
-    else if (CheckSpuMarkNeces(cmd_type))
-        HandleCmdMarkArg(code_buf, ip_ptr, cmd_type, stack_func_ret);
-}
-
-
-static void HandleCmdMarkArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             size_t stack_func_ret)
-{
-    if (cmd_type == CMD_CALL)
-        StackPush(stack_func_ret, (StackElem_t) (*ip_ptr + sizeof(int)));
-    *ip_ptr = code_buf[*ip_ptr];
 }
 
 
@@ -70,7 +48,7 @@ static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
 
         if (cmd_type & REG_T_BITMASK)
         {
-            arg_value += code_buf[(*ip_ptr)++];
+            arg_value += reg_arr[(int) code_buf[(*ip_ptr)++]];
         }
 
         StackPop(stack_num, &RAM[(int) arg_value]);
@@ -136,7 +114,7 @@ CodeError RunCode(const char* asm_file_name)
     while (true) // TODO: поразбивай на функции и мб кодогенерацию
     {
         char cmd = code_buf[ip++];
-        printf(GRN "%d: %d" WHT "\n", ip-1, cmd);
+
         switch (cmd & CMD_BITMASK)
         {
             case CMD_HLT:
@@ -144,13 +122,13 @@ CodeError RunCode(const char* asm_file_name)
 
             case CMD_PUSH:
             {
-                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num, stack_func_ret);
+                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num);
                 break;
             }
 
             case CMD_POP:
             {
-                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num, stack_func_ret);
+                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num);
                 break;
             }
 
@@ -181,11 +159,19 @@ CodeError RunCode(const char* asm_file_name)
                 break;
             }
 
-            case CMD_MULT:
+            case CMD_MUL:
             {
                 StackPop(stack_num, &temp_num1);
                 StackPop(stack_num, &temp_num2);
                 StackPush(stack_num, temp_num2 * temp_num1);
+
+                break;
+            }
+
+            case CMD_SQRT:
+            {
+                StackPop(stack_num, &temp_num1);
+                StackPush(stack_num, sqrt(temp_num1));
 
                 break;
             }
