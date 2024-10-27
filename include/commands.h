@@ -13,7 +13,7 @@ const int     NUMBER_OF_REGISTERS = 4;
 
 enum SPUCommands
 {
-    CMD_HLT = -1,
+    CMD_HLT = 0,
 
     CMD_PUSH,
     CMD_POP,

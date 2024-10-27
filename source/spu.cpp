@@ -6,31 +6,106 @@
 #include "stack.h"
 #include "stack_utils.h"
 
-static StackElem_t HandleArg(const char* code_buf, int* ip, SPUCommands cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1]);
+static const int MAX_RAM_SIZE = 256;
+
+static bool CheckSpuMarkNeces(char cmd_type);
+static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
+                         StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                         size_t stack_num, size_t stack_func_ret);
+static void HandleCmdMarkArg(char* code_buf, int* ip_ptr, char cmd_type,
+                             size_t stack_func_ret);
+static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
+                            StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                            size_t stack_num);
+static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
+                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             size_t stack_num);
 
 
-static StackElem_t HandleArg(const char* code_buf, int* ip, SPUCommands cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[])
+static bool CheckSpuMarkNeces(char cmd_type)
+{
+    return cmd_type == CMD_JMP || cmd_type == CMD_JE  || cmd_type == CMD_JNE ||
+           cmd_type == CMD_JA  || cmd_type == CMD_JAE || cmd_type == CMD_JB  ||
+           cmd_type == CMD_JBE || cmd_type == CMD_CALL;
+}
+
+
+static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
+                         StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                         size_t stack_num, size_t stack_func_ret)
+{
+    if ((cmd_type & CMD_BITMASK) == CMD_PUSH)
+        HandleCmdPushArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
+
+    else if ((cmd_type & CMD_BITMASK) == CMD_POP)
+        HandleCmdPopArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
+
+    else if (CheckSpuMarkNeces(cmd_type))
+        HandleCmdMarkArg(code_buf, ip_ptr, cmd_type, stack_func_ret);
+}
+
+
+static void HandleCmdMarkArg(char* code_buf, int* ip_ptr, char cmd_type,
+                             size_t stack_func_ret)
+{
+    if (cmd_type == CMD_CALL)
+        StackPush(stack_func_ret, (StackElem_t) (*ip_ptr + sizeof(int)));
+    *ip_ptr = code_buf[*ip_ptr];
+}
+
+
+static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
+                            StackElem_t reg_arr[NUMBER_OF_REGISTERS + 1], StackElem_t RAM[MAX_RAM_SIZE],
+                            size_t stack_num)
+{
+    StackElem_t arg_value = 0;
+
+    if (cmd_type & MEM_T_BITMASK)
+    {
+        if (cmd_type & IMM_T_BITMASK)
+        {
+            arg_value += *(StackElem_t*) &code_buf[*ip_ptr];
+            *ip_ptr += sizeof(StackElem_t);
+        }
+
+        if (cmd_type & REG_T_BITMASK)
+        {
+            arg_value += code_buf[(*ip_ptr)++];
+        }
+
+        StackPop(stack_num, &RAM[(int) arg_value]);
+    }
+
+    else
+    {
+        StackPop(stack_num, &reg_arr[(int) code_buf[(*ip_ptr)++]]);
+    }
+}
+
+
+static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
+                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             size_t stack_num)
 {
     StackElem_t arg_value = 0;
 
     if (cmd_type & IMM_T_BITMASK)
     {
-        arg_value += *(StackElem_t) (code_buf + ip);
-        ++(*ip);
+        arg_value += *(StackElem_t*) &code_buf[*ip_ptr];
+        *ip_ptr += sizeof(StackElem_t);
     }
 
     if (cmd_type & REG_T_BITMASK)
     {
-        arg_value += codebuf[*ip];
-        ++(*ip);
+        arg_value += reg_arr[(int) code_buf[(*ip_ptr)++]];
     }
 
     if (cmd_type & MEM_T_BITMASK)
+    {
         arg_value = RAM[(int) arg_value];
+    }
 
-    return arg_value;
+    StackPush(stack_num, arg_value);
 }
 
 
@@ -52,6 +127,7 @@ CodeError RunCode(const char* asm_file_name)
         return STACK_ERR;
 
     StackElem_t reg_arr[NUMBER_OF_REGISTERS+1] = {};
+    StackElem_t RAM[MAX_RAM_SIZE] = {};
 
     int ip = 0;
     StackElem_t temp_num1 = 0;
@@ -59,21 +135,22 @@ CodeError RunCode(const char* asm_file_name)
 
     while (true) // TODO: поразбивай на функции и мб кодогенерацию
     {
-        printf(GRN "%d: %d" WHT "\n", ip, code_buf[ip]);
-        switch (code_buf[ip++] & IMM_T_BITMASK)
+        char cmd = code_buf[ip++];
+        printf(GRN "%d: %d" WHT "\n", ip-1, cmd);
+        switch (cmd & CMD_BITMASK)
         {
             case CMD_HLT:
                 return NO_ERROR;
 
-            case (CMD_PUSH): // TODO: проверяй только последний бит который отвечает за тип команды, дальше HandlePush и все проверки там
+            case CMD_PUSH:
             {
-                HandleArg(code_buf, ip, CMD_PUSH);
+                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num, stack_func_ret);
                 break;
             }
 
             case CMD_POP:
             {
-                HandleArg(code_buf, ip, CMD_POP);
+                HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num, stack_func_ret);
                 break;
             }
 
@@ -243,7 +320,8 @@ CodeError RunCode(const char* asm_file_name)
 
             default:
             {
-                printf(RED "ERROR: Meet undefined command during processing: %d" WHT "\n", code_buf[ip-1]);
+                printf(RED "ERROR: Meet undefined command during processing: %d.\n"
+                           "Conjuction with bitmask: %d" WHT "\n", cmd, cmd & CMD_BITMASK);
                 return UNKNOWN_RUNTIME_CMD_ERR;
             }
         }
