@@ -4,6 +4,7 @@
 
 #include "asm.h"
 #include "commands.h"
+#include "global_consts.h"
 #include "input_output.h"
 #include "utils.h"
 
@@ -35,7 +36,7 @@ static const char* JAE_CMD_TEXT  = "jae";
 static const char* JB_CMD_TEXT   = "jb";
 static const char* JBE_CMD_TEXT  = "jbe";
 
-static const char* REGISTERS[NUMBER_OF_REGISTERS] = {"AX", "BX", "CX", "DX"};
+static const char* REGISTERS[NUM_OF_ACCESS_REGS] = {"AX", "BX", "CX", "DX"};
 
 static const int   MAX_MARKS_ARR_SIZE = 10;
 
@@ -53,23 +54,22 @@ struct Mark
 
 // ------------------------------------------------------------------------------------------------------------
 
-static bool      CheckAsmMarkNeces(const char* cmd);
-static CodeError CodeDiffAssemble (char* input_code_buf, const char* end_inp_buf,
-                                   char** output_code_buf, size_t* outbuf_size, size_t* outbuf_idx,
-                                   Mark marks_arr[MAX_MARKS_ARR_SIZE], AssembleType asm_type);
-static void      GetCmdWithArg    (char** input_code_buf, char* output_code_buf,
-                                   size_t* outbuf_idx, SPUCommands cmd_type);
-static int       GetMarkCmdNum    (Mark* marks_arr, const char* mark_name);
-static char      GetRegisterNum   (const char* reg_name);
+static bool      CheckMarkNeces  (SPUCommands cmd_type);
+static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
+                                  char** output_code_buf, size_t* outbuf_size, size_t* outbuf_idx,
+                                  Mark marks_arr[MAX_MARKS_ARR_SIZE], AssembleType asm_type);
+static CodeError GetCmdWithArg   (char** input_code_buf, char* output_code_buf,
+                                  size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
+                                  SPUCommands cmd_type, AssembleType asm_type);
+static int       GetMarkCmdNum   (Mark* marks_arr, const char* mark_name);
+static char      GetRegisterNum  (const char* reg_name);
 
 // ------------------------------------------------------------------------------------------------------------
 
-static bool CheckAsmMarkNeces(const char* cmd)
+static bool CheckMarkNeces(SPUCommands cmd_type)
 {
-    return strcmp(JMP_CMD_TEXT, cmd) == 0 || strcmp(JE_CMD_TEXT,   cmd) == 0 ||
-           strcmp(JNE_CMD_TEXT, cmd) == 0 || strcmp(JA_CMD_TEXT,   cmd) == 0 ||
-           strcmp(JAE_CMD_TEXT, cmd) == 0 || strcmp(JB_CMD_TEXT,   cmd) == 0 ||
-           strcmp(JBE_CMD_TEXT, cmd) == 0 || strcmp(CALL_CMD_TEXT, cmd) == 0;
+    return cmd_type == CMD_JMP || cmd_type == CMD_JE || cmd_type == CMD_JNE || cmd_type == CMD_JA   ||
+           cmd_type == CMD_JAE || cmd_type == CMD_JB || cmd_type == CMD_JBE || cmd_type == CMD_CALL;
 }
 
 
@@ -120,12 +120,14 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
                                   char** output_code_buf, size_t* outbuf_size, size_t* outbuf_idx,
                                   Mark marks_arr[MAX_MARKS_ARR_SIZE], AssembleType asm_type)
 {
+    CodeError code_err = NO_ERROR;
+
     char cmd[MAX_CMD_LEN] = {};
     int  marks_number     = 0;
 
     while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", cmd) != 0)
     {
-        if (cmd[0] != ';') // TODO: у тебя огромное тело цикла, каждый блок ифа в отдельную функцию, какие нахуй 200 строк на функции ты ебнулся
+        if (cmd[0] != ';')
         {
             size_t cmd_len = strlen(cmd);
 
@@ -165,12 +167,16 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
 
             else if (strcmp(cmd, PUSH_CMD_TEXT) == 0)
             {
-                GetCmdWithArg(&input_code_buf, *output_code_buf, outbuf_idx, CMD_PUSH);
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_PUSH, asm_type)) != NO_ERROR)
+                    return code_err;
             }
 
             else if (strcmp(cmd, POP_CMD_TEXT) == 0)
             {
-                GetCmdWithArg(&input_code_buf, *output_code_buf, outbuf_idx, CMD_POP);
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_POP, asm_type)) != NO_ERROR)
+                    return code_err;
             }
 
             else if (strcmp(cmd, ADD_CMD_TEXT) == 0)  // TODO: delete copypaste
@@ -221,58 +227,60 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
                 ++(*outbuf_idx);
             }
 
-            else if (CheckAsmMarkNeces(cmd))
+            else if (strcmp(cmd, JMP_CMD_TEXT) == 0)
             {
-                if (asm_type == ASM_WITH_MARKS)
-                {
-                    BufNextWord(&input_code_buf);
-                    char mark_name[MAX_CMD_LEN] = {};
-                    sscanf(input_code_buf, "%s", mark_name);
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JMP, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    int cmd_num = GetMarkCmdNum(marks_arr, mark_name);
-                    if (cmd_num == -1)
-                    {
-                        printf(RED "ERROR: Meet undefined mark during assembling: %s" WHT "\n", mark_name);
-                        return UNKNOWN_MARK_NAME_ERR;
-                    }
+            else if (strcmp(cmd, JE_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JE, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JMP_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JMP;
+            else if (strcmp(cmd, JNE_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JNE, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JE_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JE;
+            else if (strcmp(cmd, JA_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JA, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JNE_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JNE;
+            else if (strcmp(cmd, JAE_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JAE, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JA_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JA;
+            else if (strcmp(cmd, JB_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JB, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JAE_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JAE;
+            else if (strcmp(cmd, JBE_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_JBE, asm_type)) != NO_ERROR)
+                    return code_err;
+            }
 
-                    else if (strcmp(JB_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JB;
-
-                    else if (strcmp(JBE_CMD_TEXT, cmd) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_JBE;
-
-                    else if (strcmp(cmd, CALL_CMD_TEXT) == 0)
-                        (*output_code_buf)[*outbuf_idx] = (char) CMD_CALL;
-
-                    else
-                    {
-                        printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", cmd);
-                        return UNKNOWN_ASM_CMD_ERR;
-                    }
-
-                    ++(*outbuf_idx);
-                    *((int*) (*output_code_buf + *outbuf_idx)) = cmd_num;
-                    *outbuf_idx += sizeof(int);
-                }
-
-                else
-                    *outbuf_idx += sizeof(int) + sizeof(char);
+            else if (strcmp(cmd, CALL_CMD_TEXT) == 0)
+            {
+                if ((code_err = GetCmdWithArg(&input_code_buf, *output_code_buf,
+                                              outbuf_idx, marks_arr, CMD_CALL, asm_type)) != NO_ERROR)
+                    return code_err;
             }
 
             else
@@ -291,8 +299,9 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
 }
 
 
-static void GetCmdWithArg(char** input_code_buf, char* output_code_buf,
-                          size_t* outbuf_idx, SPUCommands cmd_type)
+static CodeError GetCmdWithArg(char** input_code_buf, char* output_code_buf,
+                               size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
+                               SPUCommands cmd_type, AssembleType asm_type)
 {
     char arg[MAX_CMD_LEN] = {};
     char add_arg_str[MAX_CMD_LEN] = {};
@@ -357,6 +366,30 @@ static void GetCmdWithArg(char** input_code_buf, char* output_code_buf,
             ++(*outbuf_idx);
         }
     }
+
+    else if (CheckMarkNeces(cmd_type))
+    {
+        if (asm_type == ASM_WITH_MARKS)
+        {
+            output_code_buf[*outbuf_idx] = (unsigned char) cmd_type;
+            ++(*outbuf_idx);
+
+            int cmd_num = 0;
+            if ((cmd_num = GetMarkCmdNum(marks_arr, arg)) == -1)
+            {
+                printf(RED "ERROR: Meet undefined mark during assembling: %s" WHT "\n", arg);
+                return UNKNOWN_MARK_NAME_ERR;
+            }
+
+            *(int*) &output_code_buf[*outbuf_idx] = cmd_num;
+            *outbuf_idx += sizeof(int);
+        }
+
+        else
+            *outbuf_idx += sizeof(int) + sizeof(char);
+    }
+
+    return NO_ERROR;
 }
 
 
@@ -372,7 +405,7 @@ static int GetMarkCmdNum(Mark* marks_arr, const char* mark_name)
 
 static char GetRegisterNum(const char* reg_name)
 {
-    for (int i = 0; i < NUMBER_OF_REGISTERS; ++i)
+    for (int i = 0; i < NUM_OF_ACCESS_REGS; ++i)
         if (strcmp(reg_name, REGISTERS[i]) == 0)
             return (char) (i+1);
 

@@ -12,7 +12,7 @@ QUAD_SOLVER:
 
     push AX
     push 0
-    je   LINEEQ
+    je   LINE_SOLVER
 
     push BX
     push BX
@@ -29,7 +29,11 @@ QUAD_SOLVER:
 
     push DX
     push 0
-    je DESCRZERO
+    je DescrZero
+
+    push DX
+    push 0
+    jb DescrNeg
 
     push 2           ; Number of roots = 2
     out
@@ -65,7 +69,7 @@ QUAD_SOLVER:
     out
     ret
 
-    DESCRZERO:
+    DescrZero:
         push 1       ; Number of roots = 1
         out
 
@@ -82,11 +86,17 @@ QUAD_SOLVER:
         out
         ret
 
+    DescrNeg:
+        push 0
+        out
+        ret
 
 
 
 
-LINEEQ:
+
+
+LINE_SOLVER:
     push BX
     push 0
     jne  BXNZERO

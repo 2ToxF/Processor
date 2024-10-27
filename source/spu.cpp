@@ -1,8 +1,9 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "input_output.h"
 #include "commands.h"
+#include "global_consts.h"
+#include "input_output.h"
 #include "spu.h"
 #include "stack.h"
 #include "stack_utils.h"
@@ -10,18 +11,18 @@
 static const int MAX_RAM_SIZE = 256;
 
 static void HandleCmdArg    (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 static void HandleCmdPopArg (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 
 
 static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
-                         StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                         StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
                          size_t stack_num)
 {
     if ((cmd_type & CMD_BITMASK) == CMD_PUSH)
@@ -33,7 +34,7 @@ static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
 
 
 static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
-                            StackElem_t reg_arr[NUMBER_OF_REGISTERS + 1], StackElem_t RAM[MAX_RAM_SIZE],
+                            StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                             size_t stack_num)
 {
     StackElem_t arg_value = 0;
@@ -62,7 +63,7 @@ static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
 
 
 static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUMBER_OF_REGISTERS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num)
 {
     StackElem_t arg_value = 0;
@@ -104,7 +105,7 @@ CodeError RunCode(const char* asm_file_name)
     if (CREATE_STACK(&stack_func_ret) != STK_NO_ERROR)
         return STACK_ERR;
 
-    StackElem_t reg_arr[NUMBER_OF_REGISTERS+1] = {};
+    StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1] = {};
     StackElem_t RAM[MAX_RAM_SIZE] = {};
 
     int ip = 0;
