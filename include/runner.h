@@ -3,6 +3,6 @@
 
 #include "settings.h"
 
-CodeError RunMainProgram();
+CodeError RunMainProgram(int argc, char* argv[]);
 
 #endif

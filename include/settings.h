@@ -18,12 +18,12 @@
 /// @brief Type of stack elements
 typedef double StackElem_t;
 
-const char* const INPUT_CODE_FILE_NAME  = "quad_solver.asm";
-const char* const OUTPUT_CODE_FILE_NAME = "output_code";
-
 enum CodeError
 {
+    CMD_HELP_NO_ERR = -1,
     NO_ERROR,
+
+    UNKNOWN_OPTION_ERR,
 
     FILE_NOT_OPENED_ERR,
     FILLING_FSTAT_ERR,

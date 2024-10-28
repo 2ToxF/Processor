@@ -14,5 +14,6 @@
 
 CodeError MyFread(char** input_buffer, int* input_buffer_length, const char* input_file_name);
 void PrintCodeError(CodeError code_err);
+void PrintHelp();
 
 #endif

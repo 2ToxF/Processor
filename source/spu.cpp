@@ -10,18 +10,18 @@
 static const int MAX_RAM_SIZE = 256;
 
 static void HandleCmdArg    (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 static void HandleCmdPopArg (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num);
 
 
 static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
-                         StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                         StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                          size_t stack_num)
 {
     if ((cmd_type & CMD_BITMASK) == CMD_PUSH)
@@ -62,7 +62,7 @@ static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
 
 
 static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1], StackElem_t RAM[MAX_RAM_SIZE],
+                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
                              size_t stack_num)
 {
     StackElem_t arg_value = 0;

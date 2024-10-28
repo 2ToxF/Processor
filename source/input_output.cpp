@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "cmd_processing.h"
 #include "input_output.h"
 #include "utils.h"
 
@@ -37,9 +38,15 @@ void PrintCodeError(CodeError code_err)
 
     switch (code_err)
     {
+        case CMD_HELP_NO_ERR:
+            printf(YEL "Hint was printed, program wasn't started" WHT "\n");
+            break;
+
         case NO_ERROR:
             printf(GRN "Code was done without errors" WHT "\n");
             break;
+
+        ERR_DESCR_(UNKNOWN_OPTION_ERR);
 
         ERR_DESCR_(FILE_NOT_OPENED_ERR);
         ERR_DESCR_(FILLING_FSTAT_ERR);
@@ -61,4 +68,29 @@ void PrintCodeError(CodeError code_err)
     }
 
     #undef ERR_DESCR_
+}
+
+
+void PrintHelp()
+{
+    printf(YEL "Usage: ./SPU.exe [options]\n"
+           "\n"
+           "Options:\n"
+           "  %-16s Set name of file with input code (by default <file> = \"factorial.asm\")\n"
+           "  %-16s Set name of file where compiled code should be placed (by default <file> = \"output_code\")\n"
+           "\n"
+           "  %-16s Assemble code without processing\n"
+           "  %-16s Only process assembled code\n"
+           "  %-16s Assemble and than run code\n"
+           "\n"
+           "  %-16s Print hint with program options\n",
+
+           INPUT_FILE_CMD "=<file>",
+           OUTPUT_FILE_CMD "=<file>",
+
+           ASM_TYPE_CMD,
+           PROC_TYPE_CMD,
+           ASM_PROC_TYPE_CMD,
+
+           HELP_FULL_CMD ", " HELP_SHORT_CMD);
 }
