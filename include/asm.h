@@ -3,6 +3,6 @@
 
 #include "settings.h"
 
-CodeError CodeAssemble(const char* input_file_name, const char* output_file_name);
+CodeError CodeMainAssemble(const char* input_file_name, const char* output_file_name);
 
 #endif

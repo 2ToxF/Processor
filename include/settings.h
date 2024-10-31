@@ -15,6 +15,9 @@
 /// @brief If defined no hash will be used
 // #define NHASH_MODE
 
+const char* const DEFAULT_INPUT_FILE_NAME  = "asm_files/factorial.asm";
+const char* const DEFAULT_OUTPUT_FILE_NAME = "output_code";
+
 /// @brief Type of stack elements
 typedef double StackElem_t;
 

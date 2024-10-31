@@ -9,81 +9,80 @@
 
 static const int MAX_RAM_SIZE = 256;
 
-static void HandleCmdArg    (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                             size_t stack_num);
-static void HandleCmdPopArg (char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                             size_t stack_num);
-static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                             size_t stack_num);
-
-
-static void HandleCmdArg(char* code_buf, int* ip_ptr, char cmd_type,
-                         StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                         size_t stack_num)
+struct SPUComponents
 {
-    if ((cmd_type & CMD_BITMASK) == CMD_PUSH)
-        HandleCmdPushArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
+    char* code_buf;
+    int ip;
+    char cmd;
+    StackElem_t reg_arr[REAL_NUM_OF_REGS];
+    StackElem_t RAM[MAX_RAM_SIZE];
+    size_t stack_num;
+    size_t stack_func_ret;
+};
 
-    else if ((cmd_type & CMD_BITMASK) == CMD_POP)
-        HandleCmdPopArg(code_buf, ip_ptr, cmd_type, reg_arr, RAM, stack_num);
+static void HandleCmdArg    (SPUComponents* my_spu);
+static void HandleCmdPopArg (SPUComponents* my_spu);
+static void HandleCmdPushArg(SPUComponents* my_spu);
+
+
+static void HandleCmdArg(SPUComponents* my_spu)
+{
+    if ((my_spu->cmd & CMD_BITMASK) == CMD_PUSH)
+        HandleCmdPushArg(my_spu);
+
+    else if ((my_spu->cmd & CMD_BITMASK) == CMD_POP)
+        HandleCmdPopArg(my_spu);
 }
 
 
-static void HandleCmdPopArg(char* code_buf, int* ip_ptr, char cmd_type,
-                            StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                            size_t stack_num)
+static void HandleCmdPopArg(SPUComponents* my_spu)
 {
     StackElem_t arg_value = 0;
 
-    if (cmd_type & MEM_T_BITMASK)
+    if (my_spu->cmd & MEM_T_BITMASK)
     {
-        if (cmd_type & IMM_T_BITMASK)
+        if (my_spu->cmd & IMM_T_BITMASK)
         {
-            arg_value += *(StackElem_t*) &code_buf[*ip_ptr];
-            *ip_ptr += sizeof(StackElem_t);
+            arg_value += *(StackElem_t*) &my_spu->code_buf[my_spu->ip];
+            my_spu->ip += sizeof(StackElem_t);
         }
 
-        if (cmd_type & REG_T_BITMASK)
+        if (my_spu->cmd & REG_T_BITMASK)
         {
-            arg_value += reg_arr[(int) code_buf[(*ip_ptr)++]];
+            arg_value += my_spu->reg_arr[(int) my_spu->code_buf[(my_spu->ip)++]];
         }
 
-        StackPop(stack_num, &RAM[(int) arg_value]);
+        StackPop(my_spu->stack_num, &my_spu->RAM[(int) arg_value]);
     }
 
     else
     {
-        StackPop(stack_num, &reg_arr[(int) code_buf[(*ip_ptr)++]]);
+        StackPop(my_spu->stack_num, &my_spu->reg_arr[(int) my_spu->code_buf[(my_spu->ip)++]]);
     }
 }
 
 
-static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
-                             StackElem_t reg_arr[NUM_OF_ACCESS_REGS + 1], StackElem_t RAM[MAX_RAM_SIZE],
-                             size_t stack_num)
+static void HandleCmdPushArg(SPUComponents* my_spu)
 {
     StackElem_t arg_value = 0;
 
-    if (cmd_type & IMM_T_BITMASK)
+    if (my_spu->cmd & IMM_T_BITMASK)
     {
-        arg_value += *(StackElem_t*) &code_buf[*ip_ptr];
-        *ip_ptr += sizeof(StackElem_t);
+        arg_value += *(StackElem_t*) &my_spu->code_buf[my_spu->ip];
+        my_spu->ip += sizeof(StackElem_t);
     }
 
-    if (cmd_type & REG_T_BITMASK)
+    if (my_spu->cmd & REG_T_BITMASK)
     {
-        arg_value += reg_arr[(int) code_buf[(*ip_ptr)++]];
+        arg_value += my_spu->reg_arr[(int) my_spu->code_buf[(my_spu->ip)++]];
     }
 
-    if (cmd_type & MEM_T_BITMASK)
+    if (my_spu->cmd & MEM_T_BITMASK)
     {
-        arg_value = RAM[(int) arg_value];
+        arg_value = my_spu->RAM[(int) arg_value];
     }
 
-    StackPush(stack_num, arg_value);
+    StackPush(my_spu->stack_num, arg_value);
 }
 
 
@@ -95,46 +94,40 @@ static void HandleCmdPushArg(char* code_buf, int* ip_ptr, char cmd_type,
 CodeError RunCode(const char* asm_file_name)
 {
     CodeError code_err = NO_ERROR;
+    SPUComponents my_spu = {};
 
-    char* code_buf = NULL;
     int code_bufsize = 0;
-    if ((code_err = MyFread(&code_buf, &code_bufsize, asm_file_name)) != NO_ERROR)
+    if ((code_err = MyFread(&my_spu.code_buf, &code_bufsize, asm_file_name)) != NO_ERROR)
         return code_err;
 
-    size_t stack_num = 0;
-    if (CREATE_STACK(&stack_num) != STK_NO_ERROR)
+    if (CREATE_STACK(&my_spu.stack_num) != STK_NO_ERROR)
         return STACK_ERR;
 
-    size_t stack_func_ret = 0;
-    if (CREATE_STACK(&stack_func_ret) != STK_NO_ERROR)
+    if (CREATE_STACK(&my_spu.stack_func_ret) != STK_NO_ERROR)
         return STACK_ERR;
 
-    StackElem_t reg_arr[NUM_OF_ACCESS_REGS+1] = {};
-    StackElem_t RAM[MAX_RAM_SIZE]             = {};
-
-    int ip = 0;
     StackElem_t temp_num1 = 0;
     StackElem_t temp_num2 = 0;
 
     while (true)
     {
-        char cmd = code_buf[ip++];
+        my_spu.cmd = my_spu.code_buf[my_spu.ip++];
 
-        switch (cmd & CMD_BITMASK)
+        switch (my_spu.cmd & CMD_BITMASK)
         {
             #include "commands.h"
 
             default:
             {
                 printf(RED "ERROR: Meet undefined command during processing: %d.\n"
-                           "Conjuction with bitmask: %d" WHT "\n", cmd, cmd & CMD_BITMASK);
+                           "Conjuction with bitmask: %d" WHT "\n", my_spu.cmd, my_spu.cmd & CMD_BITMASK);
                 return UNKNOWN_RUNTIME_CMD_ERR;
             }
         }
     }
 
-    StackDtor(&stack_num);
-    StackDtor(&stack_func_ret);
+    StackDtor(&my_spu.stack_num);
+    StackDtor(&my_spu.stack_func_ret);
 
     return NO_ERROR;
 }

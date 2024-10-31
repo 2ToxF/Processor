@@ -7,9 +7,6 @@
 #include "spu.h"
 #include "runner.h"
 
-static const char* const DEFAULT_INPUT_FILE_NAME  = "factorial.asm";
-static const char* const DEFAULT_OUTPUT_FILE_NAME = "output_code";
-
 static const int MAX_FILE_NAME_LEN = 50;
 
 
@@ -30,7 +27,7 @@ CodeError RunMainProgram(int argc, char* argv[])
 
     if (asm_proc_type == ONLY_ASM || asm_proc_type == ASM_AND_PROC)
     {
-        if ((code_err = CodeAssemble(input_file_name, output_file_name)) != NO_ERROR)
+        if ((code_err = CodeMainAssemble(input_file_name, output_file_name)) != NO_ERROR)
             return code_err;
 
         printf(MAG "Program assembled succesfully" WHT "\n");

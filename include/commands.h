@@ -1,16 +1,18 @@
-#define HANDLE_CMD_ARG_ HandleCmdArg(code_buf, &ip, cmd, reg_arr, RAM, stack_num);
+// Here zoo begins
+
+#define HANDLE_CMD_ARG_ HandleCmdArg(&my_spu);
 
 #define DO_OPERATION_(operation) temp_num2 operation temp_num1
 #define TWO_NUM_COMPARE_(sign) temp_num2 sign temp_num1
 #define TWO_NUM_EQUAL_ IsEqual(temp_num2, temp_num1)
 
-#define PUSH_NUM_(num) StackPush(stack_num, num);
-#define POP_ONE_NUM_ StackPop(stack_num, &temp_num1);
-#define POP_TWO_NUMS_ POP_ONE_NUM_ StackPop(stack_num, &temp_num2);
+#define PUSH_NUM_(num) StackPush(my_spu.stack_num, num);
+#define POP_ONE_NUM_ StackPop(my_spu.stack_num, &temp_num1);
+#define POP_TWO_NUMS_ POP_ONE_NUM_ StackPop(my_spu.stack_num, &temp_num2);
 
 #define PUSH_AFTER_OPERATION_(operation) PUSH_NUM_(DO_OPERATION_(operation))
 
-#define JUMP_TO_MARK_ ip = *(int*) &code_buf[ip];
+#define JUMP_TO_MARK_ my_spu.ip = *(int*) &my_spu.code_buf[my_spu.ip];
 #define CHECK_MARK_(expression)  \
     if (expression)              \
     {                            \
@@ -18,7 +20,7 @@
         break;                   \
     }                            \
                                  \
-    ip += sizeof(int);
+    my_spu.ip += sizeof(int);
 
 // ------------------------------------------------------------------------------------------------------------
 
@@ -86,13 +88,13 @@ DEF_CMD_(OUT, 9, 0,
 DEF_CMD_(RET, 10, 0,
 {
     StackElem_t temp_ip = 0;
-    StackPop(stack_func_ret, &temp_ip);
-    ip = (int) temp_ip;
+    StackPop(my_spu.stack_func_ret, &temp_ip);
+    my_spu.ip = (int) temp_ip;
 })
 
 DEF_CMD_(CALL, 11, 1,
 {
-    StackPush(stack_func_ret, (StackElem_t) (ip + sizeof(int)));
+    StackPush(my_spu.stack_func_ret, (StackElem_t) (my_spu.ip + sizeof(int)));
     JUMP_TO_MARK_
 })
 

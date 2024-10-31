@@ -14,36 +14,36 @@ static const int   START_OUT_BUFSIZE = 100;
 static const int   REALLOC_COEF      = 2;
 static const int   REALLOC_LIMIT     = 50;
 
-static const int   MAX_CMD_LEN   = 40;
+static const int   MAX_CMD_LEN       = 40;
 
-static const char* HLT_CMD_TEXT  = "hlt";
-static const char* PUSH_CMD_TEXT = "push";
-static const char* POP_CMD_TEXT  = "pop";
-static const char* ADD_CMD_TEXT  = "add";
-static const char* SUB_CMD_TEXT  = "sub";
-static const char* DIV_CMD_TEXT  = "div";
-static const char* MUL_CMD_TEXT  = "mul";
-static const char* SQRT_CMD_TEXT = "sqrt";
-static const char* IN_CMD_TEXT   = "in";
-static const char* OUT_CMD_TEXT  = "out";
-static const char* RET_CMD_TEXT  = "ret";
-static const char* CALL_CMD_TEXT = "call";
-static const char* JMP_CMD_TEXT  = "jmp";
-static const char* JE_CMD_TEXT   = "je";
-static const char* JNE_CMD_TEXT  = "jne";
-static const char* JA_CMD_TEXT   = "ja";
-static const char* JAE_CMD_TEXT  = "jae";
-static const char* JB_CMD_TEXT   = "jb";
-static const char* JBE_CMD_TEXT  = "jbe";
+static const char* HLT_CMD_TEXT      = "hlt";
+static const char* PUSH_CMD_TEXT     = "push";
+static const char* POP_CMD_TEXT      = "pop";
+static const char* ADD_CMD_TEXT      = "add";
+static const char* SUB_CMD_TEXT      = "sub";
+static const char* DIV_CMD_TEXT      = "div";
+static const char* MUL_CMD_TEXT      = "mul";
+static const char* SQRT_CMD_TEXT     = "sqrt";
+static const char* IN_CMD_TEXT       = "in";
+static const char* OUT_CMD_TEXT      = "out";
+static const char* RET_CMD_TEXT      = "ret";
+static const char* CALL_CMD_TEXT     = "call";
+static const char* JMP_CMD_TEXT      = "jmp";
+static const char* JE_CMD_TEXT       = "je";
+static const char* JNE_CMD_TEXT      = "jne";
+static const char* JA_CMD_TEXT       = "ja";
+static const char* JAE_CMD_TEXT      = "jae";
+static const char* JB_CMD_TEXT       = "jb";
+static const char* JBE_CMD_TEXT      = "jbe";
 
 static const char* REGISTERS[NUM_OF_ACCESS_REGS] = {"AX", "BX", "CX", "DX"};
 
-static const int   MAX_MARKS_ARR_SIZE = 10;
+static const int   MAX_MARKS_ARR_SIZE = 20;
 
-enum AssembleType
+enum AssembleNumber
 {
-    ASM_NO_MARKS,
-    ASM_WITH_MARKS,
+    FIRST_ASM = 1,
+    SECOND_ASM,
 };
 
 struct Mark
@@ -52,22 +52,52 @@ struct Mark
     int  cmd_ip;
 };
 
+struct ASMComponents
+{
+    char*  input_code_buf;
+    char*  end_inp_buf;
+
+    char*  output_code_buf;
+    size_t outbuf_size;
+    size_t outbuf_idx;
+
+    Mark marks_arr[MAX_MARKS_ARR_SIZE];
+
+    AssembleNumber asm_number;
+    SPUCommands    cmd_type;
+};
+
 // ------------------------------------------------------------------------------------------------------------
 
-static bool      CheckMarkNeces  (SPUCommands cmd_type);
-static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
-                                  char** output_code_buf, size_t* outbuf_size, size_t* outbuf_idx,
-                                  Mark marks_arr[MAX_MARKS_ARR_SIZE], AssembleType asm_type);
-static int       GetMarkCmdNum   (Mark* marks_arr, const char* mark_name);
-static char      GetRegisterNum  (const char* reg_name);
-static CodeError PutCmdWithArg   (char** input_code_buf, char* output_code_buf,
-                                  size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
-                                  SPUCommands cmd_type, AssembleType asm_type);
-static CodeError PutCmdWithMark  (char* mark_name, char* output_code_buf,
-                                  size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
-                                  SPUCommands cmd_type, AssembleType asm_type);
+static void      CheckBufAndRealloc(ASMComponents* my_asm);
+static bool      CheckMarkNeces    (SPUCommands cmd_type);
+
+static CodeError CodeAssembleOnce  (ASMComponents* my_asm);
+
+static int       GetMarkCmdNum     (Mark* marks_arr, const char* mark_name);
+static char      GetRegisterNum    (const char* reg_name);
+
+static CodeError PutCmdWithArg     (ASMComponents* my_asm);
+static CodeError PutCmdWithMark    (ASMComponents* my_asm, char* mark_name);
+
+static void      PutOneCharInBuf   (ASMComponents* my_asm, unsigned char value);
+static void      PutSomeCharsInBuf (ASMComponents* my_asm, StackElem_t value);
+
+static CodeError ScanMark          (ASMComponents* my_asm, char cmd[MAX_CMD_LEN],
+                                    size_t cmd_len, int* marks_number);
 
 // ------------------------------------------------------------------------------------------------------------
+
+
+static void CheckBufAndRealloc(ASMComponents* my_asm)
+{
+    if (my_asm->outbuf_idx > my_asm->outbuf_size - REALLOC_LIMIT)
+    {
+        my_asm->outbuf_size *= REALLOC_COEF;
+        my_asm->output_code_buf = (char*) MyRecalloc(my_asm->output_code_buf, my_asm->outbuf_size, my_asm->outbuf_idx);
+    }
+}
+
 
 static bool CheckMarkNeces(SPUCommands cmd_type)
 {
@@ -76,44 +106,41 @@ static bool CheckMarkNeces(SPUCommands cmd_type)
 }
 
 
-CodeError CodeAssemble(const char* input_file_name, const char* output_file_name)
+CodeError CodeMainAssemble(const char* input_file_name, const char* output_file_name)
 {
     CodeError code_err = NO_ERROR;
+    ASMComponents my_asm = {};
 
-    char* input_code_buf     = NULL;
-    int   input_code_bufsize = 0;
-    if ((code_err = MyFread(&input_code_buf, &input_code_bufsize, input_file_name)) != NO_ERROR)
+    int input_code_bufsize = 0;
+    if ((code_err = MyFread(&my_asm.input_code_buf, &input_code_bufsize, input_file_name)) != NO_ERROR)
+        return code_err;
+
+    char*  start_inp_buf    = my_asm.input_code_buf;
+    my_asm.end_inp_buf      = my_asm.input_code_buf + input_code_bufsize;
+
+    my_asm.outbuf_size      = START_OUT_BUFSIZE;
+    my_asm.output_code_buf  = (char*) calloc(my_asm.outbuf_size, sizeof(char));
+
+    my_asm.asm_number = FIRST_ASM;
+    if ((code_err = CodeAssembleOnce(&my_asm)) != NO_ERROR)
+        return code_err;
+
+    my_asm.input_code_buf = start_inp_buf;
+    my_asm.outbuf_idx = 0;
+    my_asm.asm_number = SECOND_ASM;
+
+    if ((code_err = CodeAssembleOnce(&my_asm)) != NO_ERROR)
         return code_err;
 
     FILE* out_fptr = fopen(output_file_name, "wb");
     if (out_fptr == NULL)
         return FILE_NOT_OPENED_ERR;
 
-    Mark marks_arr[MAX_MARKS_ARR_SIZE] = {};
-
-    char*  start_inp_buf    = input_code_buf;
-    char*  end_inp_buf      = input_code_buf + input_code_bufsize;
-
-    size_t outbuf_size      = START_OUT_BUFSIZE;
-    char*  output_code_buf  = (char*) calloc(outbuf_size, sizeof(char));
-    size_t outbuf_idx       = 0;
-
-    if ((code_err = CodeDiffAssemble(input_code_buf, end_inp_buf, &output_code_buf,
-                                     &outbuf_size, &outbuf_idx, marks_arr, ASM_NO_MARKS)) != NO_ERROR)
-        return code_err;
-
-    outbuf_idx = 0;
-
-    if ((code_err = CodeDiffAssemble(input_code_buf, end_inp_buf, &output_code_buf,
-                                     &outbuf_size, &outbuf_idx, marks_arr, ASM_WITH_MARKS)) != NO_ERROR)
-        return code_err;
-
-    fwrite(output_code_buf, 1, outbuf_idx, out_fptr);
-
-    free(start_inp_buf);   start_inp_buf = NULL;
-    free(output_code_buf); output_code_buf = NULL;
-
+    fwrite(my_asm.output_code_buf, 1, my_asm.outbuf_idx, out_fptr);
     fclose(out_fptr); out_fptr = NULL;
+
+    free(start_inp_buf);          start_inp_buf = NULL;
+    free(my_asm.output_code_buf); my_asm.output_code_buf = NULL;
 
     return code_err;
 }
@@ -121,31 +148,30 @@ CodeError CodeAssemble(const char* input_file_name, const char* output_file_name
 
 #define DEF_CMD_(cmd_name, cmd_num, args_num, ...)                                       \
     if (strcmp(cmd, cmd_name##_CMD_TEXT) == 0)                                           \
+    {                                                                                    \
+        my_asm->cmd_type = CMD_##cmd_name;                                               \
+                                                                                         \
         if (args_num == 0)                                                               \
         {                                                                                \
-            (*output_code_buf)[*outbuf_idx] = (char) CMD_##cmd_name;                     \
-            ++(*outbuf_idx);                                                             \
+            my_asm->output_code_buf[my_asm->outbuf_idx] = (char) CMD_##cmd_name;         \
+            ++my_asm->outbuf_idx;                                                        \
         }                                                                                \
                                                                                          \
         else                                                                             \
         {                                                                                \
-            if ((code_err = PutCmdWithArg(&input_code_buf, *output_code_buf,             \
-                                          outbuf_idx, marks_arr,                         \
-                                          CMD_##cmd_name, asm_type)) != NO_ERROR)        \
+            if ((code_err = PutCmdWithArg(my_asm)) != NO_ERROR)                          \
                 return code_err;                                                         \
         }                                                                                \
-    else
+    } else
 
-static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
-                                  char** output_code_buf, size_t* outbuf_size, size_t* outbuf_idx,
-                                  Mark marks_arr[MAX_MARKS_ARR_SIZE], AssembleType asm_type)
+static CodeError CodeAssembleOnce(ASMComponents* my_asm)
 {
     CodeError code_err = NO_ERROR;
 
     char cmd[MAX_CMD_LEN] = {};
     int  marks_number     = 0;
 
-    while (input_code_buf < end_inp_buf && sscanf(input_code_buf, "%s", cmd) != 0)
+    while (my_asm->input_code_buf < my_asm->end_inp_buf && sscanf(my_asm->input_code_buf, "%s", cmd) != 0)
     {
         if (cmd[0] != ';')
         {
@@ -153,28 +179,14 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
 
             if (cmd[cmd_len - 1] == ':')
             {
-                if (asm_type == ASM_NO_MARKS)
-                {
-                    cmd[cmd_len - 1] = '\0';
+                if ((code_err = ScanMark(my_asm, cmd, cmd_len, &marks_number)) != NO_ERROR)
+                    return code_err;
 
-                    if (marks_number >= MAX_MARKS_ARR_SIZE)
-                        return TOO_MUCH_MARKS_ERR;
-
-                    strcpy(marks_arr[marks_number].name, cmd);
-                    marks_arr[marks_number].cmd_ip = (int) *outbuf_idx;
-
-                    ++marks_number;
-                }
-
-                BufNextString(&input_code_buf);
+                BufNextString(&my_asm->input_code_buf);
                 continue;
             }
 
-            if (*outbuf_idx > *outbuf_size - REALLOC_LIMIT)
-            {
-                *outbuf_size *= REALLOC_COEF;
-                *output_code_buf = (char*) MyRecalloc(*output_code_buf, *outbuf_size, *outbuf_idx);
-            }
+            CheckBufAndRealloc(my_asm);
 
             #include "commands.h"
 
@@ -183,11 +195,9 @@ static CodeError CodeDiffAssemble(char* input_code_buf, const char* end_inp_buf,
                 printf(RED "ERROR: Meet unknown command during assembling: %s" WHT "\n", cmd);
                 return UNKNOWN_CMD_ASM_ERR;
             }
-
-            cmd[0] = ';';
         }
 
-        BufNextString(&input_code_buf);
+        BufNextString(&my_asm->input_code_buf);
     }
 
     return NO_ERROR;
@@ -216,67 +226,67 @@ static char GetRegisterNum(const char* reg_name)
 }
 
 
-#define PUT_1CHAR_IN_BUF_(expression)             \
-    output_code_buf[*outbuf_idx] = (expression);  \
-    ++(*outbuf_idx)
-
-#define PUT_STACK_CHARS_IN_BUF_(expression)                                      \
-    *(StackElem_t*) &output_code_buf[*outbuf_idx] = (StackElem_t) (expression);  \
-    *outbuf_idx += sizeof(StackElem_t)
-
-static CodeError PutCmdWithArg(char** input_code_buf, char* output_code_buf,
-                               size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
-                               SPUCommands cmd_type, AssembleType asm_type)
+static void PutOneCharInBuf(ASMComponents* my_asm, unsigned char value)
 {
-    char arg[MAX_CMD_LEN] = {};
-    char add_arg_str[MAX_CMD_LEN] = {};
-    StackElem_t add_arg_num = 0;
-    char register_number  = 0;
+    my_asm->output_code_buf[my_asm->outbuf_idx] = value;
+    ++(my_asm->outbuf_idx);
+}
 
-    BufNextWord(input_code_buf);
-    sscanf(*input_code_buf, "%s", arg);
 
-    if (StrIsNum(arg) && cmd_type == CMD_PUSH)
+static CodeError PutCmdWithArg(ASMComponents* my_asm)
+{
+    char        arg[MAX_CMD_LEN]         = {};
+    char        add_arg_str[MAX_CMD_LEN] = {};
+
+    StackElem_t add_arg_num              = 0;
+    char        register_number          = 0;
+
+    BufNextWord(&my_asm->input_code_buf);
+    sscanf(my_asm->input_code_buf, "%s", arg);
+
+    if (StrIsNum(arg) && my_asm->cmd_type == CMD_PUSH)
     {
-        PUT_1CHAR_IN_BUF_(((char) cmd_type) | IMM_T_BITMASK);
-        PUT_STACK_CHARS_IN_BUF_(atof(arg));
+        PutOneCharInBuf(my_asm, ((unsigned char) my_asm->cmd_type) | IMM_T_BITMASK);
+        PutSomeCharsInBuf(my_asm, (StackElem_t) atof(arg));
     }
 
-    else if ((register_number = GetRegisterNum(arg)) != 0 && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
+    else if ((register_number = GetRegisterNum(arg)) != 0 &&
+             (my_asm->cmd_type == CMD_POP || my_asm->cmd_type == CMD_PUSH))
     {
-        PUT_1CHAR_IN_BUF_(((char) cmd_type) | REG_T_BITMASK);
-        PUT_1CHAR_IN_BUF_(register_number);
+        PutOneCharInBuf(my_asm, ((unsigned char) my_asm->cmd_type) | REG_T_BITMASK);
+        PutOneCharInBuf(my_asm, register_number);
     }
 
-    else if (arg[0] == '[' && arg[strlen(arg)-1] == ']' && (cmd_type == CMD_POP || cmd_type == CMD_PUSH))
+    else if (arg[0] == '[' && arg[strlen(arg)-1] == ']' &&
+             (my_asm->cmd_type == CMD_POP || my_asm->cmd_type == CMD_PUSH))
     {
         sscanf(arg, "[%[^]]]", add_arg_str);
 
         if (StrIsNum(add_arg_str))
         {
-            PUT_1CHAR_IN_BUF_((unsigned char) (cmd_type | MEM_T_BITMASK | IMM_T_BITMASK));
-            PUT_STACK_CHARS_IN_BUF_((StackElem_t) atof(add_arg_str));
+            PutOneCharInBuf(my_asm, (unsigned char) (my_asm->cmd_type | MEM_T_BITMASK | IMM_T_BITMASK));
+            PutSomeCharsInBuf(my_asm, (StackElem_t) atof(add_arg_str));
         }
 
         else if (sscanf(arg, "[%[^]]]", add_arg_str) == 1 &&
                  (register_number = GetRegisterNum(add_arg_str)) != 0)
         {
-            PUT_1CHAR_IN_BUF_((unsigned char) (cmd_type | MEM_T_BITMASK | REG_T_BITMASK));
-            PUT_1CHAR_IN_BUF_(register_number);
+            PutOneCharInBuf(my_asm, (unsigned char) (my_asm->cmd_type | MEM_T_BITMASK | REG_T_BITMASK));
+            PutOneCharInBuf(my_asm, register_number);
         }
 
         else if ((sscanf(arg, "[%lf+%[^]]]", &add_arg_num, add_arg_str) == 2 ||
                  sscanf(arg, "[%[^+]+%lf]", add_arg_str, &add_arg_num) == 2) &&
                  (register_number = GetRegisterNum(add_arg_str)) != 0)
         {
-            PUT_1CHAR_IN_BUF_((unsigned char) (cmd_type | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK));
-            PUT_STACK_CHARS_IN_BUF_(add_arg_num);
-            PUT_1CHAR_IN_BUF_(register_number);
+            PutOneCharInBuf(my_asm, (unsigned char) (my_asm->cmd_type | MEM_T_BITMASK | REG_T_BITMASK | IMM_T_BITMASK));
+            PutSomeCharsInBuf(my_asm, add_arg_num);
+            PutOneCharInBuf(my_asm, register_number);
         }
     }
 
-    else if (CheckMarkNeces(cmd_type))
-        return PutCmdWithMark(arg, output_code_buf, outbuf_idx, marks_arr, cmd_type, asm_type);
+    else if (CheckMarkNeces(my_asm->cmd_type))
+        return PutCmdWithMark(my_asm, arg);
 
     else
         return UNKNOWN_ARG_ASM_ERR;
@@ -285,30 +295,52 @@ static CodeError PutCmdWithArg(char** input_code_buf, char* output_code_buf,
 }
 
 
-static CodeError PutCmdWithMark(char* mark_name, char* output_code_buf,
-                                size_t* outbuf_idx, Mark marks_arr[MAX_MARKS_ARR_SIZE],
-                                SPUCommands cmd_type, AssembleType asm_type)
+static CodeError PutCmdWithMark(ASMComponents* my_asm, char* mark_name)
 {
-    if (asm_type == ASM_WITH_MARKS)
+    if (my_asm->asm_number == SECOND_ASM)
     {
-        PUT_1CHAR_IN_BUF_((unsigned char) cmd_type);
+        PutOneCharInBuf(my_asm, (unsigned char) my_asm->cmd_type);
 
         int cmd_ip = 0;
-        if ((cmd_ip = GetMarkCmdNum(marks_arr, mark_name)) == -1)
+        if ((cmd_ip = GetMarkCmdNum(my_asm->marks_arr, mark_name)) == -1)
         {
             printf(RED "ERROR: Meet undefined mark during assembling: %s" WHT "\n", mark_name);
             return UNKNOWN_MARK_NAME_ERR;
         }
 
-        *(int*) &output_code_buf[*outbuf_idx] = cmd_ip;
-        *outbuf_idx += sizeof(int);
+        *(int*) &my_asm->output_code_buf[my_asm->outbuf_idx] = cmd_ip;
+        my_asm->outbuf_idx += sizeof(int);
     }
 
     else
-        *outbuf_idx += sizeof(int) + sizeof(char);
+        my_asm->outbuf_idx += sizeof(int) + sizeof(char);
 
     return NO_ERROR;
 }
 
-#undef PUT_1CHAR_IN_BUF_
-#undef PUT_STACK_CHARS_IN_BUF_
+
+static void PutSomeCharsInBuf(ASMComponents* my_asm, StackElem_t value)
+{
+    *(StackElem_t*) &my_asm->output_code_buf[my_asm->outbuf_idx] = value;
+    my_asm->outbuf_idx += sizeof(StackElem_t);
+}
+
+
+static CodeError ScanMark(ASMComponents* my_asm, char cmd[MAX_CMD_LEN],
+                          size_t cmd_len, int* marks_number)
+{
+    if (my_asm->asm_number == FIRST_ASM)
+    {
+        cmd[cmd_len - 1] = '\0';
+
+        if (*marks_number >= MAX_MARKS_ARR_SIZE)
+            return TOO_MUCH_MARKS_ERR;
+
+        strcpy(my_asm->marks_arr[*marks_number].name, cmd);
+        my_asm->marks_arr[*marks_number].cmd_ip = (int) my_asm->outbuf_idx;
+
+        ++(*marks_number);
+    }
+
+    return NO_ERROR;
+}
