@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "global_consts.h"
+#include "consts.h"
 #include "input_output.h"
 #include "spu.h"
 #include "stack.h"

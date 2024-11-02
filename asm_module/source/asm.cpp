@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "asm.h"
-#include "global_consts.h"
+#include "consts.h"
 #include "input_output.h"
 #include "utils.h"
 
