@@ -86,9 +86,9 @@ static void HandleCmdPushArg(SPUComponents* my_spu)
 }
 
 
-#define DEF_CMD_(cmd_name, cmd_num, args_num, code)  \
+#define DEF_CMD_(cmd_name, args_num, ...)            \
     case CMD_##cmd_name:                             \
-        {code}                                       \
+        {__VA_ARGS__}                                \
         break;
 
 CodeError RunCode(const char* asm_file_name)

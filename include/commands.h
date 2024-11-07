@@ -24,117 +24,122 @@
 
 // ------------------------------------------------------------------------------------------------------------
 
-DEF_CMD_(HLT, 0, 0,
+DEF_CMD_(HLT, 0,
 {
     return NO_ERROR;
 })
 
 
-DEF_CMD_(PUSH, 1, 1,
+DEF_CMD_(PUSH, 1,
 {
     HANDLE_CMD_ARG_
 })
 
-DEF_CMD_(POP, 2, 1,
+DEF_CMD_(POP, 1,
 {
     HANDLE_CMD_ARG_
 })
 
 
-DEF_CMD_(ADD, 3, 0,
+DEF_CMD_(ADD, 0,
 {
     POP_TWO_NUMS_
     PUSH_AFTER_OPERATION_(+)
 })
 
-DEF_CMD_(SUB, 4, 0,
+DEF_CMD_(SUB, 0,
 {
     POP_TWO_NUMS_
     PUSH_AFTER_OPERATION_(-)
 })
 
-DEF_CMD_(DIV, 5, 0,
+DEF_CMD_(DIV, 0,
 {
     POP_TWO_NUMS_
     PUSH_AFTER_OPERATION_(/)
 })
 
-DEF_CMD_(MUL, 6, 0,
+DEF_CMD_(MUL, 0,
 {
     POP_TWO_NUMS_
     PUSH_AFTER_OPERATION_(*)
 })
 
-DEF_CMD_(SQRT, 7, 0,
+DEF_CMD_(SQRT, 0,
 {
     POP_ONE_NUM_
     PUSH_NUM_(sqrt(temp_num1));
 })
 
 
-DEF_CMD_(IN, 8, 0,
+DEF_CMD_(IN, 0,
 {
     scanf("%lf", &temp_num1);
     PUSH_NUM_(temp_num1);
 })
 
-DEF_CMD_(OUT, 9, 0,
+DEF_CMD_(OUT, 0,
 {
     POP_ONE_NUM_
     printf(YEL "%g" WHT "\n", temp_num1);
 })
 
+DEF_CMD_(DUMP, 0,
+{
+    StackDump(my_spu.stack_num, __FILE__, __LINE__);
+})
 
-DEF_CMD_(RET, 10, 0,
+
+DEF_CMD_(RET, 0,
 {
     StackElem_t temp_ip = 0;
     StackPop(my_spu.stack_func_ret, &temp_ip);
     my_spu.ip = (int) temp_ip;
 })
 
-DEF_CMD_(CALL, 11, 1,
+DEF_CMD_(CALL, 1,
 {
     StackPush(my_spu.stack_func_ret, (StackElem_t) (my_spu.ip + sizeof(int)));
     JUMP_TO_MARK_
 })
 
 
-DEF_CMD_(JMP, 12, 1,
+DEF_CMD_(JMP, 1,
 {
     JUMP_TO_MARK_
 })
 
-DEF_CMD_(JE, 13, 1,
+DEF_CMD_(JE, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(TWO_NUM_EQUAL_)
 })
 
-DEF_CMD_(JNE, 14, 1,
+DEF_CMD_(JNE, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(!TWO_NUM_EQUAL_)
 })
 
-DEF_CMD_(JA, 15, 1,
+DEF_CMD_(JA, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(TWO_NUM_COMPARE_(>))
 })
 
-DEF_CMD_(JAE, 16, 1,
+DEF_CMD_(JAE, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(TWO_NUM_COMPARE_(>=))
 })
 
-DEF_CMD_(JB, 17, 1,
+DEF_CMD_(JB, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(TWO_NUM_COMPARE_(<))
 })
 
-DEF_CMD_(JBE, 18, 1,
+DEF_CMD_(JBE, 1,
 {
     POP_TWO_NUMS_
     CHECK_MARK_(TWO_NUM_COMPARE_(<=))

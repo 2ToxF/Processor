@@ -10,33 +10,34 @@
 
 // ------------------------------------------------------------------------------------------------------------
 
-static const int   START_OUT_BUFSIZE = 100;
-static const int   REALLOC_COEF      = 2;
-static const int   REALLOC_LIMIT     = 50;
+static const int   START_OUT_BUFSIZE   = 100;
+static const int   REALLOC_COEF        = 2;
+static const int   REALLOC_LIMIT       = 50;
 
-static const int   MAX_CMD_LEN       = 40;
+static const int   MAX_CMD_LEN         = 40;
 
-static const char* HLT_CMD_TEXT      = "hlt";
-static const char* PUSH_CMD_TEXT     = "push";
-static const char* POP_CMD_TEXT      = "pop";
-static const char* ADD_CMD_TEXT      = "add";
-static const char* SUB_CMD_TEXT      = "sub";
-static const char* DIV_CMD_TEXT      = "div";
-static const char* MUL_CMD_TEXT      = "mul";
-static const char* SQRT_CMD_TEXT     = "sqrt";
-static const char* IN_CMD_TEXT       = "in";
-static const char* OUT_CMD_TEXT      = "out";
-static const char* RET_CMD_TEXT      = "ret";
-static const char* CALL_CMD_TEXT     = "call";
-static const char* JMP_CMD_TEXT      = "jmp";
-static const char* JE_CMD_TEXT       = "je";
-static const char* JNE_CMD_TEXT      = "jne";
-static const char* JA_CMD_TEXT       = "ja";
-static const char* JAE_CMD_TEXT      = "jae";
-static const char* JB_CMD_TEXT       = "jb";
-static const char* JBE_CMD_TEXT      = "jbe";
+static const char* const HLT_CMD_TEXT  = "hlt";
+static const char* const PUSH_CMD_TEXT = "push";
+static const char* const POP_CMD_TEXT  = "pop";
+static const char* const ADD_CMD_TEXT  = "add";
+static const char* const SUB_CMD_TEXT  = "sub";
+static const char* const DIV_CMD_TEXT  = "div";
+static const char* const MUL_CMD_TEXT  = "mul";
+static const char* const SQRT_CMD_TEXT = "sqrt";
+static const char* const IN_CMD_TEXT   = "in";
+static const char* const OUT_CMD_TEXT  = "out";
+static const char* const DUMP_CMD_TEXT = "dump";
+static const char* const RET_CMD_TEXT  = "ret";
+static const char* const CALL_CMD_TEXT = "call";
+static const char* const JMP_CMD_TEXT  = "jmp";
+static const char* const JE_CMD_TEXT   = "je";
+static const char* const JNE_CMD_TEXT  = "jne";
+static const char* const JA_CMD_TEXT   = "ja";
+static const char* const JAE_CMD_TEXT  = "jae";
+static const char* const JB_CMD_TEXT   = "jb";
+static const char* const JBE_CMD_TEXT  = "jbe";
 
-static const char* REGISTERS[NUM_OF_ACCESS_REGS] = {"AX", "BX", "CX", "DX"};
+static const char* const REGISTERS[NUM_OF_ACCESS_REGS] = {"AX", "BX", "CX", "DX"};
 
 static const int   MAX_MARKS_ARR_SIZE = 20;
 
@@ -146,7 +147,7 @@ CodeError CodeMainAssemble(const char* input_file_name, const char* output_file_
 }
 
 
-#define DEF_CMD_(cmd_name, cmd_num, args_num, ...)                                       \
+#define DEF_CMD_(cmd_name, args_num, ...)                                                \
     if (strcmp(cmd, cmd_name##_CMD_TEXT) == 0)                                           \
     {                                                                                    \
         my_asm->cmd_type = CMD_##cmd_name;                                               \
