@@ -1,3 +1,11 @@
+/*
+    WARNING:
+    DON'T CHANGE THIS FILE - YOU MAY HAVE A LOT OF ERRORS AFTER A SMALL REMARK
+    Honestly, I consciously used method of codogeneration that is really hard to debug and which causes that
+        my code has become (maybe) very hard to read.
+    If you want to change commands for assembler unit, than check file "include/commands.h" in origin
+*/
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>

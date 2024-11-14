@@ -1,6 +1,6 @@
 # modules dirs
-ASM_DIR   := asm_module
-SPU_DIR   := spu_module
+ASM_DIR   := asm_unit
+SPU_DIR   := spu_unit
 STACK_DIR := Stack
 
 # main dirs
