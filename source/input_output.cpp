@@ -73,7 +73,7 @@ void PrintCodeError(CodeError code_err)
 
 void PrintHelp()
 {
-    printf(YEL "Usage: ./SPU.exe [options]\n"
+    printf(YEL "Usage: ./Processor.exe [options]\n"
            "\n"
            "Options:\n"
            "  %-16s Set name of file with input code (by default <file> = \"factorial.asm\")\n"
